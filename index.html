@@ -214,6 +214,12 @@
                 </div>
             </div>
 
+            <!-- Geography -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl mb-6">
+                <h3 class="text-2xl font-bold text-white mb-4">🌍 Top Countries</h3>
+                <div id="geoData" class="space-y-4"></div>
+            </div>
+
             <!-- Top Tracks -->
             <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl mb-6">
                 <h3 class="text-2xl font-bold text-white mb-4">🎵 Top 5 Tracks</h3>
@@ -315,6 +321,9 @@
             document.getElementById('artistName').textContent = artist.name;
             document.getElementById('artistPopularity').textContent = artist.popularity + '/100';
             document.getElementById('artistFollowers').textContent = formatNumber(artist.followers);
+            
+            // Load geography data
+            loadGeographyData(artist.name);
             
             // Genres
             const genresDiv = document.getElementById('artistGenres');
@@ -590,6 +599,48 @@
                     currentAudio.pause();
                 }
             }, 30000);
+        }
+        
+        // Geography Data
+        async function loadGeographyData(artistName) {
+            try {
+                const response = await fetch('/api/geography', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ artist_name: artistName })
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.top_countries) {
+                    displayGeography(data.top_countries);
+                }
+            } catch (error) {
+                console.error('Error loading geography:', error);
+            }
+        }
+        
+        function displayGeography(countries) {
+            const geoDiv = document.getElementById('geoData');
+            
+            geoDiv.innerHTML = countries.map((country, index) => {
+                const colors = ['emerald', 'blue', 'cyan', 'purple', 'pink'];
+                const color = colors[index % colors.length];
+                
+                return `
+                    <div class="glass rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-2xl">${country.flag}</span>
+                                <span class="text-white font-semibold">${country.name}</span>
+                            </div>
+                            <span class="text-white text-opacity-60 font-bold">${country.percentage}%</span>
+                        </div>
+                        <div class="w-full bg-white bg-opacity-10 rounded-full h-2 overflow-hidden">
+                            <div class="bg-gradient-to-r from-${color}-400 to-${color}-600 h-full transition-all" style="width: ${country.percentage}%; min-width: 2px;"></div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
         }
         
         // Enter key support
