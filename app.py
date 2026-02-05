@@ -531,6 +531,7 @@ def get_geography():
             return jsonify({'error': 'Artist not found'}), 404
         
         artist = search_results['artists']['items'][0]
+        total_followers = artist['followers']['total']
         
         # Obtener datos geográficos (usando heurística mejorada de géneros)
         country_scores = get_geo_data_from_spotify_genres_improved(artist_name)
@@ -559,7 +560,13 @@ def get_geography():
         
         distribution = {}
         for country, score in country_scores.items():
-            distribution[country] = round((score / total_score) * 100, 1)
+            percentage = (score / total_score) * 100
+            # Calcular absolute followers
+            absolute_followers = int((percentage / 100) * total_followers)
+            distribution[country] = {
+                'percentage': round(percentage, 1),
+                'followers': absolute_followers
+            }
         
         # Top 5 países
         countries_info = {
@@ -575,19 +582,21 @@ def get_geography():
             'FR': {'name': 'France', 'flag': '🇫🇷'},
         }
         
-        top_5 = sorted(distribution.items(), key=lambda x: x[1], reverse=True)[:5]
+        top_5 = sorted(distribution.items(), key=lambda x: x[1]['followers'], reverse=True)[:5]
         
         geo_data = []
-        for country_code, percentage in top_5:
+        for country_code, data in top_5:
             geo_data.append({
                 'country': country_code,
                 'name': countries_info[country_code]['name'],
                 'flag': countries_info[country_code]['flag'],
-                'percentage': percentage
+                'percentage': data['percentage'],
+                'followers': data['followers']
             })
         
         return jsonify({
             'artist': artist_name,
+            'total_followers': total_followers,
             'top_countries': geo_data,
             'genres': list(artist.get('genres', []))[:5]
         })
