@@ -5,9 +5,6 @@ import requests
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
-from bs4 import BeautifulSoup
-import time
-from functools import lru_cache
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
