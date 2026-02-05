@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MAI Scout - Music Analytics Intelligence</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0e27;
+            color: #e0e6ed;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+        }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .glass-dark {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .card-dark {
+            background: rgba(20, 25, 45, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 12px;
+            padding: 24px;
+        }
+        
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .7; }
+        }
+        
+        .trend-red { color: #ff5555; }
+        .trend-orange { color: #ffaa44; }
+        .trend-yellow { color: #ffdd44; }
+        .trend-green { color: #44dd99; }
+        
+        input, select, textarea {
+            background: rgba(255, 255, 255, 0.08) !important;
+            color: #e0e6ed !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        }
+        
+        input::placeholder {
+            color: #8090a8 !important;
+        }
+        
+        input:focus, select:focus {
+            border-color: #667eea !important;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1) !important;
+        }
+
+        a {
+            color: #667eea;
+            text-decoration: none;
+        }
+
+        a:hover {
+            color: #764ba2;
+        }
+
+        button {
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+        }
+
+        .section-hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-4xl mx-auto">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h1 class="text-5xl md:text-6xl font-bold mb-2">
+                <span class="inline-block">🎵</span> <span class="gradient-text">MAI</span>
+            </h1>
+            <p class="text-gray-400 text-lg">Music Audience Insights</p>
+            <div class="mt-2 inline-block glass rounded-full px-4 py-1">
+                <span class="text-emerald-400 text-sm">✅ POWERED BY SPOTIFY API</span>
+            </div>
+        </div>
+
+        <!-- Search Box -->
+        <div class="glass-dark rounded-2xl p-6 md:p-8 mb-6">
+            <label class="block text-white font-semibold mb-3 text-lg">
+                🔍 Search Artist:
+            </label>
+            <div class="flex flex-col md:flex-row gap-3">
+                <input 
+                    type="text" 
+                    id="artistUrl" 
+                    placeholder="Bad Bunny, Taylor Swift, Drake..."
+                    class="flex-1 p-4 rounded-lg text-lg"
+                />
+                <button 
+                    onclick="scoutArtist()"
+                    class="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-4 px-8 rounded-lg text-lg"
+                >
+                    🚀 Analyze
+                </button>
+            </div>
+            
+            <!-- Quick Demo Links -->
+            <div class="mt-4">
+                <p class="text-gray-400 text-sm mb-2">Quick test:</p>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="quickSearch('Bad Bunny')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Bad Bunny</button>
+                    <button onclick="quickSearch('Taylor Swift')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Taylor Swift</button>
+                    <button onclick="quickSearch('Peso Pluma')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Peso Pluma</button>
+                    <button onclick="quickSearch('The Weeknd')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">The Weeknd</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="loading" class="hidden text-center py-8">
+            <div class="inline-block pulse-animation text-6xl">🎵</div>
+            <p class="text-gray-300 text-xl mt-4">Analyzing artist...</p>
+        </div>
+
+        <!-- Error -->
+        <div id="error" class="hidden glass-dark rounded-2xl p-6 mb-6 border-2 border-red-500">
+            <p class="text-red-400 text-center" id="errorMessage"></p>
+        </div>
+
+        <!-- TikTok Results -->
+        <div id="tiktokResults" class="hidden glass-dark rounded-2xl p-6 md:p-8 mb-6 shadow-2xl">
+        </div>
+
+        <!-- Results -->
+        <div id="results" class="hidden">
+            <!-- Artist Card -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 mb-6 shadow-2xl">
+                <div class="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                    <!-- Artist Image -->
+                    <div class="flex-shrink-0">
+                        <img 
+                            id="artistImage" 
+                            class="w-40 h-40 md:w-48 md:h-48 rounded-2xl shadow-xl border-4 border-white border-opacity-20 object-cover"
+                            alt="Artist"
+                        />
+                    </div>
+                    
+                    <!-- Artist Info -->
+                    <div class="flex-1 text-center md:text-left">
+                        <h2 id="artistName" class="text-3xl md:text-4xl font-bold text-white mb-3"></h2>
+                        
+                        <!-- Stats Grid -->
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div class="glass rounded-lg p-3">
+                                <div class="text-gray-400 text-sm">Popularity</div>
+                                <div id="artistPopularity" class="text-2xl font-bold text-white"></div>
+                            </div>
+                            <div class="glass rounded-lg p-3">
+                                <div class="text-gray-400 text-sm">Followers</div>
+                                <div id="artistFollowers" class="text-2xl font-bold text-white"></div>
+                            </div>
+                        </div>
+                        
+                        <!-- Genres -->
+                        <div class="flex flex-wrap gap-2 justify-center md:justify-start">
+                            <span class="text-gray-400 text-sm mr-2">Genres:</span>
+                            <div id="artistGenres" class="flex flex-wrap gap-2"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAI Pulse Score -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl text-center mb-6">
+                <h3 class="text-2xl font-bold text-white mb-4">📊 MAI Pulse</h3>
+                
+                <div class="mb-6">
+                    <div id="pulseScore" class="text-6xl font-bold text-white mb-2"></div>
+                    <div class="text-gray-400">Artist Momentum Score</div>
+                </div>
+                
+                <div id="pulseCategory" class="text-4xl font-bold mb-4"></div>
+                
+                <div class="glass rounded-lg p-4 max-w-md mx-auto">
+                    <p class="text-gray-300 text-sm">
+                        <strong>Formula:</strong> (Popularity × 1.5) + (Followers ÷ 1,000)
+                    </p>
+                </div>
+            </div>
+
+            <!-- Top Tracks -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl mb-6">
+                <h3 class="text-2xl font-bold text-white mb-4">🎵 Top 5 Tracks</h3>
+                <div id="topTracks" class="space-y-3"></div>
+            </div>
+
+            <!-- Similar Artists -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl mb-6">
+                <h3 class="text-2xl font-bold text-white mb-4">🎭 Similar Artists</h3>
+                <div id="similarArtists" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+            </div>
+
+            <!-- Recent Releases -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl mb-6">
+                <h3 class="text-2xl font-bold text-white mb-4">🆕 Recent Releases</h3>
+                <div id="recentReleases" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+            </div>
+
+            <!-- YouTube Stats -->
+            <div id="youtubeSection" class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl hidden">
+                <h3 class="text-2xl font-bold text-white mb-4">📺 YouTube Stats</h3>
+                
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-gray-400 text-sm mb-1">Subscribers</div>
+                        <div id="ytSubscribers" class="text-2xl font-bold text-red-400"></div>
+                    </div>
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-gray-400 text-sm mb-1">Total Views</div>
+                        <div id="ytViews" class="text-2xl font-bold text-red-400"></div>
+                    </div>
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-gray-400 text-sm mb-1">Videos</div>
+                        <div id="ytVideoCount" class="text-2xl font-bold text-red-400"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <a id="ytChannelLink" href="#" target="_blank" class="text-blue-400 hover:text-blue-300 transition">
+                        🔗 <span id="ytChannelName"></span>
+                    </a>
+                </div>
+
+                <div class="mb-6">
+                    <h4 class="text-lg font-semibold text-white mb-3">🔥 Top Videos</h4>
+                    <div id="ytTopVideos" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+
+                <div>
+                    <h4 class="text-lg font-semibold text-white mb-3">🆕 Recent Videos</h4>
+                    <div id="ytRecentVideos" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function scoutArtist() {
+            const artistName = document.getElementById('artistUrl').value.trim();
+            
+            if (!artistName) {
+                showError('Please enter an artist name');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+            document.getElementById('error').classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/scout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ artist_name: artistName })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error analyzing artist');
+                }
+                
+                displayResults(data);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+        
+        function displayResults(data) {
+            const { artist, mai_pulse } = data;
+            
+            // Artist info
+            document.getElementById('artistImage').src = artist.image;
+            document.getElementById('artistName').textContent = artist.name;
+            document.getElementById('artistPopularity').textContent = artist.popularity + '/100';
+            document.getElementById('artistFollowers').textContent = formatNumber(artist.followers);
+            
+            // Genres
+            const genresDiv = document.getElementById('artistGenres');
+            genresDiv.innerHTML = artist.genres.map(genre => 
+                `<span class="glass rounded-full px-3 py-1 text-white text-sm">${genre}</span>`
+            ).join('');
+            
+            // MAI Pulse
+            document.getElementById('pulseScore').textContent = formatNumber(mai_pulse.score);
+            const categoryElement = document.getElementById('pulseCategory');
+            categoryElement.textContent = mai_pulse.category;
+            categoryElement.className = `text-4xl font-bold mb-4 trend-${mai_pulse.color}`;
+            
+            // Top Tracks
+            const topTracksDiv = document.getElementById('topTracks');
+            topTracksDiv.innerHTML = artist.top_tracks.map(track => `
+                <div class="glass rounded-lg p-3 flex items-center gap-3">
+                    ${track.album_image ? `<img src="${track.album_image}" class="w-12 h-12 rounded" alt="Album">` : ''}
+                    <div class="flex-1">
+                        <div class="text-white font-semibold">${track.name}</div>
+                        <div class="text-white text-opacity-60 text-sm">${formatDuration(track.duration_ms)}</div>
+                    </div>
+                    ${track.preview_url ? `
+                        <button onclick="playPreview('${track.preview_url}')" class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm">
+                            ▶ Preview
+                        </button>
+                    ` : `
+                        <a href="${track.spotify_url}" target="_blank" class="bg-white bg-opacity-20 hover:bg-opacity-30 text-white px-3 py-2 rounded-lg text-sm">
+                            🔗 Spotify
+                        </a>
+                    `}
+                </div>
+            `).join('');
+            
+            // Similar Artists
+            const similarDiv = document.getElementById('similarArtists');
+            if (artist.similar_artists && artist.similar_artists.length > 0) {
+                similarDiv.innerHTML = artist.similar_artists.map(similar => `
+                    <a href="${similar.spotify_url}" target="_blank" class="glass rounded-lg p-3 text-center hover:bg-white hover:bg-opacity-10 transition">
+                        ${similar.image ? `<img src="${similar.image}" class="w-full aspect-square object-cover rounded-lg mb-2" alt="${similar.name}">` : ''}
+                        <div class="text-white font-semibold text-sm">${similar.name}</div>
+                    </a>
+                `).join('');
+            } else {
+                similarDiv.innerHTML = '<p class="text-white text-opacity-60 text-center col-span-full">No hay artistas similares disponibles</p>';
+            }
+            
+            // Recent Releases
+            const releasesDiv = document.getElementById('recentReleases');
+            releasesDiv.innerHTML = artist.recent_releases.map(release => `
+                <a href="${release.spotify_url}" target="_blank" class="glass rounded-lg p-3 flex gap-3 hover:bg-white hover:bg-opacity-10 transition">
+                    ${release.image ? `<img src="${release.image}" class="w-16 h-16 rounded" alt="Album">` : ''}
+                    <div class="flex-1">
+                        <div class="text-white font-semibold">${release.name}</div>
+                        <div class="text-white text-opacity-60 text-sm">${release.type} · ${formatReleaseDate(release.release_date)}</div>
+                    </div>
+                </a>
+            `).join('');
+            
+            // YouTube Stats
+            if (artist.youtube) {
+                const yt = artist.youtube;
+                document.getElementById('ytSubscribers').textContent = formatNumber(yt.subscribers);
+                document.getElementById('ytViews').textContent = formatNumber(yt.total_views);
+                document.getElementById('ytVideoCount').textContent = formatNumber(yt.video_count);
+                document.getElementById('ytChannelName').textContent = yt.channel_name;
+                document.getElementById('ytChannelLink').href = yt.channel_url;
+                
+                // Top videos más vistos
+                const ytTopVideosDiv = document.getElementById('ytTopVideos');
+                if (yt.top_videos && yt.top_videos.length > 0) {
+                    ytTopVideosDiv.innerHTML = yt.top_videos.map(video => `
+                        <a href="${video.url}" target="_blank" class="glass rounded-lg p-3 flex gap-3 hover:bg-white hover:bg-opacity-10 transition">
+                            <img src="${video.thumbnail}" class="w-24 h-auto rounded" alt="Thumbnail">
+                            <div class="flex-1">
+                                <div class="text-white font-semibold text-sm line-clamp-2">${video.title}</div>
+                                <div class="text-white text-opacity-60 text-xs mt-1">
+                                    👁️ ${formatNumber(video.views)} vistas · 👍 ${formatNumber(video.likes)}
+                                </div>
+                            </div>
+                        </a>
+                    `).join('');
+                } else {
+                    ytTopVideosDiv.innerHTML = '<p class="text-white text-opacity-60 text-center col-span-full">No hay datos disponibles</p>';
+                }
+                
+                // Videos recientes
+                const ytRecentVideosDiv = document.getElementById('ytRecentVideos');
+                if (yt.recent_videos && yt.recent_videos.length > 0) {
+                    ytRecentVideosDiv.innerHTML = yt.recent_videos.map(video => `
+                        <a href="${video.url}" target="_blank" class="glass rounded-lg p-3 flex gap-3 hover:bg-white hover:bg-opacity-10 transition">
+                            <img src="${video.thumbnail}" class="w-24 h-auto rounded" alt="Thumbnail">
+                            <div class="flex-1">
+                                <div class="text-white font-semibold text-sm line-clamp-2">${video.title}</div>
+                                <div class="text-white text-opacity-60 text-xs mt-1">
+                                    👁️ ${formatNumber(video.views)} vistas · 👍 ${formatNumber(video.likes)}
+                                </div>
+                            </div>
+                        </a>
+                    `).join('');
+                } else {
+                    ytRecentVideosDiv.innerHTML = '<p class="text-white text-opacity-60 text-center col-span-full">No hay videos recientes</p>';
+                }
+                
+                document.getElementById('youtubeSection').classList.remove('hidden');
+            } else {
+                document.getElementById('youtubeSection').classList.add('hidden');
+            }
+            
+            // Show results
+            document.getElementById('results').classList.remove('hidden');
+        }
+        
+        function showError(message) {
+            document.getElementById('errorMessage').textContent = message;
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('results').classList.add('hidden');
+        }
+        
+        async function scoutTikTok() {
+            const username = document.getElementById('tiktokUsername').value.trim();
+            
+            if (!username) {
+                showError('Por favor ingresa un username de TikTok');
+                return;
+            }
+            
+            // Show loading
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('error').classList.add('hidden');
+            
+            try {
+                const response = await fetch('/api/tiktok', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ username })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.error || 'Error al analizar TikTok');
+                }
+                
+                displayTikTokResults(data);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                document.getElementById('loading').classList.add('hidden');
+            }
+        }
+        
+        function displayTikTokResults(data) {
+            const tiktokDiv = document.getElementById('tiktokResults');
+            
+            let apiWarning = '';
+            if (data.demo_mode) {
+                apiWarning = `
+                    <div class="bg-yellow-600 bg-opacity-20 border-2 border-yellow-500 rounded-lg p-4 mb-4">
+                        <p class="text-yellow-200 font-semibold">⚠️ Modo Demo: Configura tu RapidAPI key en app.py</p>
+                        <p class="text-yellow-200 text-sm mt-1">
+                            Obtén tu API key gratis en: <a href="https://rapidapi.com/hub" target="_blank" class="underline">RapidAPI.com</a>
+                        </p>
+                    </div>
+                `;
+            }
+            
+            tiktokDiv.innerHTML = `
+                ${apiWarning}
+                <div class="flex items-center gap-4 mb-4">
+                    <img src="${data.avatar || 'https://via.placeholder.com/150/667eea/ffffff?text=TT'}" class="w-20 h-20 rounded-full" alt="${data.username}">
+                    <div>
+                        <h3 class="text-2xl font-bold text-white">
+                            @${data.username} ${data.verified ? '✓' : ''}
+                        </h3>
+                        ${data.nickname ? `<p class="text-white text-opacity-60">${data.nickname}</p>` : ''}
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                    <div class="glass rounded-lg p-3 text-center">
+                        <div class="text-white text-opacity-60 text-sm">Seguidores</div>
+                        <div class="text-xl font-bold text-pink-400">${formatNumber(data.followers)}</div>
+                    </div>
+                    <div class="glass rounded-lg p-3 text-center">
+                        <div class="text-white text-opacity-60 text-sm">Siguiendo</div>
+                        <div class="text-xl font-bold text-pink-400">${formatNumber(data.following)}</div>
+                    </div>
+                    <div class="glass rounded-lg p-3 text-center">
+                        <div class="text-white text-opacity-60 text-sm">Likes</div>
+                        <div class="text-xl font-bold text-pink-400">${formatNumber(data.likes)}</div>
+                    </div>
+                    <div class="glass rounded-lg p-3 text-center">
+                        <div class="text-white text-opacity-60 text-sm">Videos</div>
+                        <div class="text-xl font-bold text-pink-400">${data.videos}</div>
+                    </div>
+                </div>
+                
+                ${data.bio ? `
+                    <div class="glass rounded-lg p-4">
+                        <p class="text-white text-opacity-80 text-sm">${data.bio}</p>
+                    </div>
+                ` : ''}
+                
+                <div class="mt-4 text-center">
+                    <a href="https://www.tiktok.com/@${data.username}" target="_blank" class="inline-block bg-gradient-to-r from-pink-500 to-red-500 hover:from-pink-600 hover:to-red-600 text-white font-bold py-2 px-6 rounded-lg">
+                        Ver en TikTok →
+                    </a>
+                </div>
+            `;
+            
+            tiktokDiv.classList.remove('hidden');
+        }
+        
+        function quickSearch(artistName) {
+            document.getElementById('artistUrl').value = artistName;
+            scoutArtist();
+        }
+        
+        function formatNumber(num) {
+            if (num >= 1000000) {
+                return (num / 1000000).toFixed(1) + 'M';
+            } else if (num >= 1000) {
+                return (num / 1000).toFixed(1) + 'K';
+            }
+            return num.toFixed(0);
+        }
+        
+        function formatDuration(ms) {
+            const minutes = Math.floor(ms / 60000);
+            const seconds = Math.floor((ms % 60000) / 1000);
+            return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+        
+        function formatReleaseDate(dateStr) {
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffTime = Math.abs(now - date);
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 30) {
+                return `Hace ${diffDays} días`;
+            } else if (diffDays < 365) {
+                const months = Math.floor(diffDays / 30);
+                return `Hace ${months} ${months === 1 ? 'mes' : 'meses'}`;
+            } else {
+                return date.getFullYear();
+            }
+        }
+        
+        let currentAudio = null;
+        
+        function playPreview(url) {
+            // Detener audio anterior si existe
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio = null;
+            }
+            
+            // Reproducir nuevo audio
+            currentAudio = new Audio(url);
+            currentAudio.volume = 0.5;
+            currentAudio.play().catch(err => {
+                console.error('Error playing audio:', err);
+                alert('Could not play preview');
+            });
+            
+            // Auto-detener después de 30 segundos
+            setTimeout(() => {
+                if (currentAudio) {
+                    currentAudio.pause();
+                }
+            }, 30000);
+        }
+        
+        // Enter key support
+        document.getElementById('artistUrl').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                scoutArtist();
+            }
+        });
+        
+        document.getElementById('tiktokUsername').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                scoutTikTok();
+            }
+        });
+    </script>
+</body>
+</html>
