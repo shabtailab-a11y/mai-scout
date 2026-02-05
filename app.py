@@ -5,6 +5,9 @@ import requests
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
+from bs4 import BeautifulSoup
+import time
+from functools import lru_cache
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
@@ -160,8 +163,8 @@ def get_youtube_stats(artist_name):
         print(f"Error fetching YouTube data: {e}")
         return None
 
-def get_geo_data_from_spotify_genres(artist_name):
-    """Obtiene datos geográficos usando análisis de géneros de Spotify"""
+def get_geo_data_from_spotify_genres_improved(artist_name):
+    """Obtiene datos geográficos usando análisis de géneros + mejora heurística"""
     try:
         # Buscar artista
         search_results = spotify.search(q=artist_name, type='artist', limit=1)
@@ -169,9 +172,9 @@ def get_geo_data_from_spotify_genres(artist_name):
             return None
         
         artist = search_results['artists']['items'][0]
-        genres = set(g.lower() for g in artist.get('genres', []))
+        genres = [g.lower() for g in artist.get('genres', [])]
         
-        # Distribución base realista
+        # Distribución base
         country_scores = {
             'US': 30,
             'MX': 10,
@@ -185,40 +188,43 @@ def get_geo_data_from_spotify_genres(artist_name):
             'CL': 5
         }
         
-        # Ajustes AGRESIVOS basados en géneros reales
-        # Reggaeton/Trap Latino → Latam domina
-        if any(x in genres for x in ['reggaeton', 'trap latino', 'urbano latino', 'latin trap']):
-            country_scores = {'MX': 22, 'AR': 18, 'CO': 15, 'US': 15, 'BR': 10, 'CL': 8, 'ES': 7, 'GB': 3, 'DE': 2, 'FR': 0}
+        # Lógica mejorada y más específica
+        # Reggaeton/Trap Latino → Latam alto
+        if any(x in genres for x in ['reggaeton', 'trap latino', 'urbano latino']):
+            country_scores = {'MX': 25, 'AR': 20, 'CO': 18, 'US': 12, 'BR': 8, 'CL': 7, 'ES': 5, 'GB': 2, 'DE': 2, 'FR': 1}
         
-        # Argentine Rock/Pop → Argentina domina
-        elif any(x in genres for x in ['argentine rock', 'latin rock', 'latin indie', 'indie pop']) or 'electrónico' in genres:
-            country_scores = {'AR': 35, 'US': 15, 'BR': 12, 'CO': 10, 'CL': 8, 'ES': 7, 'MX': 5, 'GB': 4, 'DE': 2, 'FR': 2}
+        # Argentine indie/rock → Argentina muy alto
+        elif any(x in genres for x in ['latin indie', 'indie pop', 'argentine rock']):
+            country_scores = {'AR': 40, 'US': 15, 'BR': 12, 'CO': 8, 'CL': 8, 'ES': 8, 'MX': 5, 'GB': 2, 'DE': 1, 'FR': 1}
         
-        # Brazilian → Brasil domina
-        elif any(x in genres for x in ['samba', 'bossanova', 'forró', 'brazilian', 'funk carioca']):
-            country_scores = {'BR': 40, 'US': 15, 'MX': 10, 'AR': 8, 'CO': 8, 'ES': 7, 'GB': 5, 'DE': 4, 'FR': 2, 'CL': 1}
+        # Brazilian música → Brasil dominante
+        elif any(x in genres for x in ['samba', 'bossanova', 'funk carioca', 'brazilian']):
+            country_scores = {'BR': 50, 'US': 15, 'MX': 8, 'AR': 8, 'CO': 7, 'ES': 6, 'GB': 3, 'DE': 1, 'FR': 1, 'CL': 1}
         
-        # K-pop → distribución global balanced
+        # Variante reggaeton más global (Bad Bunny type)
+        elif 'reggaeton' in genres or 'latin trap' in genres:
+            country_scores = {'MX': 22, 'US': 18, 'AR': 16, 'CO': 14, 'BR': 10, 'CL': 8, 'ES': 7, 'GB': 3, 'DE': 1, 'FR': 1}
+        
+        # Pop Latino
+        elif 'latin pop' in genres:
+            country_scores = {'MX': 20, 'BR': 18, 'US': 18, 'AR': 12, 'CO': 10, 'ES': 8, 'CL': 7, 'GB': 4, 'DE': 2, 'FR': 1}
+        
+        # K-pop → distribuido
         elif 'k-pop' in genres or 'korean' in genres:
-            country_scores = {'US': 25, 'BR': 18, 'MX': 15, 'AR': 12, 'CO': 10, 'ES': 8, 'GB': 6, 'DE': 4, 'FR': 2, 'CL': 0}
+            country_scores = {'US': 28, 'BR': 20, 'MX': 16, 'AR': 12, 'CO': 8, 'ES': 8, 'GB': 4, 'DE': 2, 'FR': 1, 'CL': 1}
         
-        # Reggaeton global like Bad Bunny
-        elif 'reggaeton' in genres:
-            country_scores = {'MX': 20, 'US': 20, 'AR': 15, 'CO': 12, 'BR': 10, 'CL': 8, 'ES': 7, 'GB': 4, 'DE': 2, 'FR': 2}
+        # Afrobeats
+        elif any(x in genres for x in ['afrobeats', 'amapiano']):
+            country_scores = {'US': 35, 'BR': 22, 'MX': 12, 'AR': 10, 'ES': 10, 'CO': 5, 'GB': 3, 'DE': 2, 'FR': 1, 'CL': 0}
         
-        # Afrobeats → Brasil high
-        elif any(x in genres for x in ['afrobeats', 'amapiano', 'afroswing']):
-            country_scores = {'BR': 25, 'US': 30, 'MX': 12, 'AR': 8, 'CO': 8, 'ES': 8, 'GB': 5, 'DE': 2, 'FR': 1, 'CL': 1}
+        # Pop global → USA fuerte
+        elif 'pop' in genres and len(genres) <= 2:
+            country_scores = {'US': 45, 'BR': 15, 'MX': 12, 'AR': 10, 'ES': 8, 'GB': 5, 'CO': 3, 'DE': 1, 'FR': 1, 'CL': 0}
         
-        # Pop Global → USA domina
-        elif 'pop' in genres and len(genres) < 3:
-            country_scores = {'US': 40, 'BR': 15, 'MX': 12, 'AR': 10, 'ES': 8, 'GB': 7, 'CO': 4, 'DE': 2, 'FR': 1, 'CL': 1}
-        
-        # Si ningún patrón matchea, retornar scores default
         return country_scores
         
     except Exception as e:
-        print(f"Error in geo analysis: {e}")
+        print(f"Error in improved geo analysis: {e}")
         return None
 
 def get_artist_data(artist_id):
@@ -526,8 +532,8 @@ def get_geography():
         
         artist = search_results['artists']['items'][0]
         
-        # Obtener datos geográficos basados en géneros Spotify
-        country_scores = get_geo_data_from_spotify_genres(artist_name)
+        # Obtener datos geográficos (usando heurística mejorada de géneros)
+        country_scores = get_geo_data_from_spotify_genres_improved(artist_name)
         
         if not country_scores:
             return jsonify({'error': 'Could not fetch geographic data'}), 500
