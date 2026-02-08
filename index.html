@@ -385,11 +385,11 @@
                     
                     <!-- Audience Insights -->
                     <div id="audienceInsightsContainer" class="hidden mb-8 bg-gradient-to-r from-blue-900 from-opacity-20 to-cyan-900 to-opacity-20 rounded-lg p-6 border border-cyan-400 border-opacity-30">
-                        <div class="flex items-center gap-2 mb-4">
+                        <div class="flex items-center gap-2 mb-6">
                             <h3 class="text-lg font-bold text-cyan-300">🎯 Key Audience Insights</h3>
                             <span class="text-xs bg-cyan-900 bg-opacity-50 text-cyan-200 px-2 py-1 rounded">Modeled</span>
                         </div>
-                        <div id="audienceInsightsList" class="space-y-3 text-gray-200"></div>
+                        <div id="audienceInsightsList" class="space-y-0 text-gray-100"></div>
                     </div>
                     
                     <!-- Timeline -->
@@ -1108,8 +1108,10 @@
             
             // Audience Insights (if available)
             if (evolutionData.audience_insights && evolutionData.audience_insights.length > 0) {
-                const audienceInsightsHTML = evolutionData.audience_insights.map(insight => `
-                    <p class="text-sm leading-relaxed">${insight}</p>
+                const audienceInsightsHTML = evolutionData.audience_insights.map((insight, idx) => `
+                    <div class="pb-3 ${idx < evolutionData.audience_insights.length - 1 ? 'border-b border-cyan-400 border-opacity-20 mb-3' : ''}">
+                        <p class="text-sm leading-relaxed text-gray-100">${insight}</p>
+                    </div>
                 `).join('');
                 
                 document.getElementById('audienceInsightsList').innerHTML = audienceInsightsHTML;

@@ -91,8 +91,9 @@ EVOLUTION_DATA = {
             "🎯 Genre-specific audience vs género pop genérico"
         ],
         "audience_insights": [
-            "Entre 2017–2019, la audiencia crece aproximadamente x3, pasando de clubs de 500–1.500 personas a teatros de 2.000–5.000, con consolidación en CABA y expansión hacia el resto de Latinoamérica.",
-            "De 2019 a 2026, el crecimiento es de ~x5, escalando desde arenas medianas (5.000–8.000) a estadios de 30.000–50.000 personas, consolidando presencia en múltiples países de América Latina."
+            "Disrupción Viral (2018-19): La tracción digital de Ouke y Jala Jala generó un multiplicador de audiencia de x10, forzando la migración inmediata del circuito under a venues de 5.000 tickets (Obras Sanitarias), validando su modelo de performance híbrida.",
+            "Consolidación Mainstream (2024): El impacto global del Tiny Desk y el lanzamiento de Baño María triplicaron la demanda (x3), agotando el Movistar Arena (15k) y habilitando giras transatlánticas con más de 30 fechas sold-out en Europa y Latam.",
+            "Expansión Global (2025): La exposición masiva en Jimmy Fallon y el triunfo en los Grammys detonaron la entrada al mercado estadounidense, escalando a slots primarios en festivales de 40k+ (Coachella) y estadios en mercados clave como Brasil."
         ]
     },
     
@@ -183,8 +184,9 @@ EVOLUTION_DATA = {
             "🎪 Tour revenue = 2nd pillar (streaming #1)"
         ],
         "audience_insights": [
-            "Tras X 100pre, la audiencia se multiplica aproximadamente por x3, pasando de venues de 1.000–3.000 personas a arenas de 15.000–20.000, con expansión fuerte desde Latinoamérica hacia EE.UU.",
-            "El salto a giras en estadios implica un crecimiento de ~x1.7, escalando de arenas a estadios de 60.000–80.000 personas y consolidando consumo simultáneo en América, Europa y otros mercados globales."
+            "Trap King (2016-17): Viralidad digital y Soy Peor multiplican la audiencia x10, saltando de clubs de 1k a arenas latinas de 10k.",
+            "Superestrella (2018-20): X 100PRE y el crossover con Drake (Mía) triplican el alcance (x3), consolidando arenas globales de 30k y entrada al mercado anglo.",
+            "Icono Global (2022-26): Un Verano Sin Ti y el Super Bowl detonan un salto x2.5, desbloqueando estadios de 80k+ y residencias masivas, cimentando su estatus de 'Industry Plant' orgánica."
         ]
     },
     
@@ -275,8 +277,9 @@ EVOLUTION_DATA = {
             "🌐 Global reach = English-speaking TAM expansion"
         ],
         "audience_insights": [
-            "Entre Fearless y Red, la audiencia se multiplica cerca de x4, pasando de teatros y arenas medianas (3.000–8.000) a arenas completas de 15.000–25.000 personas, con expansión fuera del mercado country de EE.UU.",
-            "Con The Eras Tour, la audiencia se duplica (~x2), migrando de estadios de 40.000–55.000 personas a estadios de 70.000–90.000, alcanzando un pico de consumo global sostenido."
+            "Crossover Country (2008-10): El éxito de Fearless detonó un crecimiento de x5, permitiendo la transición de telonera en teatros (2k) a headliner en arenas de 15k. La captura demográfica dual (Country/Pop) validó el modelo de consumo masivo temprano.",
+            "Infraestructura de Estadios (2014-18): El pivote pop de 1989 y la estrategia de Reputation impulsaron un multiplicador x4, migrando definitivamente de arenas a estadios de 60k-80k, optimizando el yield por ticket mediante producción a gran escala.",
+            "Economía de Escala (2023-Presente): The Eras Tour capitalizó la IP del catálogo completo para generar una densidad de demanda >x10, normalizando residencias de estadios multi-noche (70k x 3-6 fechas) por ciudad y rompiendo los techos históricos de recaudación bruta global."
         ]
     },
     
@@ -343,8 +346,9 @@ EVOLUTION_DATA = {
             "🎯 Fastest-growing Mexican artist since reggaeton explosion"
         ],
         "audience_insights": [
-            "Tras el breakthrough viral en TikTok (2022–2023), la audiencia crece ~x5, pasando de clubs de 500–1.500 personas a teatros de 3.000–6.000, consolidando presencia en México y expandiéndose hacia Latam.",
-            "De 2023 a 2026, el crecimiento es de ~x1.75, escalando desde arenas de 8.000–12.000 personas a estadios de 30.000–50.000, con presencia inicial en EE.UU. y consolidación en mercados clave de América Latina."
+            "Disrupción Regional (2022-23): La viralidad transfronteriza de Ella Baila Sola aplicó un multiplicador de audiencia de x20, forzando la migración inmediata de palenques locales de 2k a arenas estadounidenses de 12k-15k, rompiendo la barrera del idioma en el mercado general.",
+            "Validación Hard-Ticket (2023): El lanzamiento de Génesis estabilizó la demanda en arenas mayores de 18k+ durante el Doble P Tour, transformando el volumen de streaming en venta dura de tickets y agotando 40 fechas en Norteamérica.",
+            "Estatus de Headliner (2024-25): Con el ciclo Éxodo y el slot principal en Coachella (125k pax), la infraestructura escaló a festivales masivos y arenas premium (Madison Square Garden), diversificando el revenue con una producción escénica de alto coste."
         ]
     }
 }
