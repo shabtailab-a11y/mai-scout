@@ -735,5 +735,34 @@ def subscribe_evolution():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/unlock-feature', methods=['POST'])
+def unlock_feature():
+    """Subscribe to unlock feature (Instagram, TikTok Advanced, etc)"""
+    data = request.get_json()
+    email = data.get('email', '').strip()
+    role = data.get('role', '').strip()
+    feature = data.get('feature', '').strip()
+    artist = data.get('artist', '').strip()
+    
+    if not email or not role or not feature:
+        return jsonify({'error': 'Email, role, and feature required'}), 400
+    
+    try:
+        # TODO: Save to database or email service
+        # For now, just acknowledge
+        feature_names = {
+            'instagram': 'Instagram Stats',
+            'tiktok_advanced': 'TikTok Advanced Stats'
+        }
+        
+        feature_name = feature_names.get(feature, feature)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Thanks! We\'ll notify you when {feature_name} launches for {artist}'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

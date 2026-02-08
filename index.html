@@ -282,7 +282,7 @@
                 </div>
             </div>
 
-            <!-- TikTok Stats -->
+            <!-- TikTok Stats (Auto-loaded) -->
             <div id="tiktokSection" class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl hidden mt-6">
                 <h3 class="text-2xl font-bold text-white mb-4">🎵 TikTok Stats</h3>
                 
@@ -309,6 +309,46 @@
 
                 <div class="glass rounded-lg p-4">
                     <p class="text-gray-300 text-sm"><strong>Bio:</strong> <span id="ttBio" class="text-gray-400">—</span></p>
+                </div>
+            </div>
+
+            <!-- Instagram Stats (Locked) -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl mt-6">
+                <div class="flex items-start justify-between mb-6">
+                    <h3 class="text-2xl font-bold text-white">📸 Instagram Stats</h3>
+                    <span class="bg-gradient-to-r from-pink-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-semibold">🔒 Coming Soon</span>
+                </div>
+                
+                <div class="glass rounded-lg p-6 text-center">
+                    <p class="text-gray-300 mb-4">
+                        Real-time Instagram analytics including followers, engagement rates, reach, and latest posts analysis.
+                    </p>
+                    <button 
+                        onclick="openEmailModal('instagram', document.getElementById('artistName').textContent)"
+                        class="bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-700 hover:to-purple-700 text-white font-bold py-3 px-6 rounded-lg transition"
+                    >
+                        🔓 Unlock with Email
+                    </button>
+                </div>
+            </div>
+
+            <!-- TikTok Advanced Stats (Locked) -->
+            <div class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl mt-6">
+                <div class="flex items-start justify-between mb-6">
+                    <h3 class="text-2xl font-bold text-white">🎵 TikTok Advanced Stats</h3>
+                    <span class="bg-gradient-to-r from-cyan-600 to-blue-600 text-white px-4 py-2 rounded-full text-sm font-semibold">🔒 Coming Soon</span>
+                </div>
+                
+                <div class="glass rounded-lg p-6 text-center">
+                    <p class="text-gray-300 mb-4">
+                        Deep TikTok analytics with video performance, hashtag trends, audience demographics, and viral potential scoring.
+                    </p>
+                    <button 
+                        onclick="openEmailModal('tiktok_advanced', document.getElementById('artistName').textContent)"
+                        class="bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-700 hover:to-blue-700 text-white font-bold py-3 px-6 rounded-lg transition"
+                    >
+                        🔓 Unlock with Email
+                    </button>
                 </div>
             </div>
         </div>
@@ -410,6 +450,59 @@
                         </form>
                     </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Email Unlock Modal -->
+        <div id="unlockModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="glass-dark rounded-2xl p-8 max-w-md w-full">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="unlockTitle" class="text-2xl font-bold text-white">🔓 Unlock Feature</h2>
+                    <button onclick="closeUnlockModal()" class="text-gray-400 hover:text-white text-2xl">✕</button>
+                </div>
+                
+                <div class="mb-6">
+                    <p id="unlockDescription" class="text-gray-300 mb-4"></p>
+                    <p class="text-sm text-gray-400">Leave your email and we'll notify you when this feature is live:</p>
+                </div>
+                
+                <form onsubmit="subscribeFeature(event)">
+                    <div class="mb-4">
+                        <input 
+                            type="email" 
+                            id="unlockEmailInput" 
+                            placeholder="your@email.com"
+                            class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20"
+                            required
+                        />
+                    </div>
+                    
+                    <div class="mb-6">
+                        <select 
+                            id="unlockRoleInput"
+                            class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white border border-white border-opacity-20"
+                            required
+                        >
+                            <option value="">Select your role...</option>
+                            <option value="artist">Artist</option>
+                            <option value="manager">Manager</option>
+                            <option value="booker">Booker</option>
+                            <option value="label">Label</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    
+                    <button 
+                        type="submit"
+                        class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-lg"
+                    >
+                        Notify Me
+                    </button>
+                </form>
+                
+                <p class="text-xs text-gray-500 text-center mt-4">
+                    We'll use your email only to notify you about feature updates.
+                </p>
             </div>
         </div>
     </div>
@@ -1061,6 +1154,67 @@
                 if (data.status === 'success') {
                     alert('✅ ' + data.message);
                     closeEvolution();
+                } else {
+                    alert('❌ Error: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Subscribe error:', error);
+                alert('Error subscribing. Please try again.');
+            }
+        }
+        
+        // Unlock Modal Functions
+        function openEmailModal(featureType, artistName) {
+            const features = {
+                'instagram': {
+                    title: '📸 Unlock Instagram Stats',
+                    description: 'Get real-time Instagram analytics including followers, engagement rates, reach, and content performance for ' + artistName + '.'
+                },
+                'tiktok_advanced': {
+                    title: '🎵 Unlock TikTok Advanced Stats',
+                    description: 'Access deep TikTok analytics with video performance, hashtag trends, audience demographics, and viral potential scoring for ' + artistName + '.'
+                }
+            };
+            
+            const feature = features[featureType] || features['instagram'];
+            
+            document.getElementById('unlockTitle').textContent = feature.title;
+            document.getElementById('unlockDescription').textContent = feature.description;
+            
+            // Store feature type for submission
+            document.getElementById('unlockModal').dataset.featureType = featureType;
+            document.getElementById('unlockModal').dataset.artistName = artistName;
+            
+            document.getElementById('unlockModal').classList.remove('hidden');
+        }
+        
+        function closeUnlockModal() {
+            document.getElementById('unlockModal').classList.add('hidden');
+        }
+        
+        async function subscribeFeature(event) {
+            event.preventDefault();
+            
+            const email = document.getElementById('unlockEmailInput').value;
+            const role = document.getElementById('unlockRoleInput').value;
+            const featureType = document.getElementById('unlockModal').dataset.featureType;
+            const artistName = document.getElementById('unlockModal').dataset.artistName;
+            
+            try {
+                const response = await fetch('/api/unlock-feature', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, role, feature: featureType, artist: artistName })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert('✅ ' + data.message);
+                    // Clear form
+                    document.getElementById('unlockEmailInput').value = '';
+                    document.getElementById('unlockRoleInput').value = '';
+                    closeUnlockModal();
                 } else {
                     alert('❌ Error: ' + data.error);
                 }
