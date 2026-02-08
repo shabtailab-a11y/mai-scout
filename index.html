@@ -281,6 +281,36 @@
                     <div id="ytRecentVideos" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
                 </div>
             </div>
+
+            <!-- TikTok Stats -->
+            <div id="tiktokSection" class="glass-dark rounded-2xl p-6 md:p-8 shadow-2xl hidden mt-6">
+                <h3 class="text-2xl font-bold text-white mb-4">🎵 TikTok Stats</h3>
+                
+                <div class="grid grid-cols-3 gap-4 mb-6">
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-gray-400 text-sm mb-1">Followers</div>
+                        <div id="ttFollowers" class="text-2xl font-bold text-pink-400"></div>
+                    </div>
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-gray-400 text-sm mb-1">Likes</div>
+                        <div id="ttLikes" class="text-2xl font-bold text-pink-400"></div>
+                    </div>
+                    <div class="glass rounded-lg p-4 text-center">
+                        <div class="text-gray-400 text-sm mb-1">Videos</div>
+                        <div id="ttVideos" class="text-2xl font-bold text-pink-400"></div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <a id="ttProfileLink" href="#" target="_blank" class="text-pink-400 hover:text-pink-300 transition">
+                        🔗 <span id="ttUsername"></span>
+                    </a>
+                </div>
+
+                <div class="glass rounded-lg p-4">
+                    <p class="text-gray-300 text-sm"><strong>Bio:</strong> <span id="ttBio" class="text-gray-400">—</span></p>
+                </div>
+            </div>
         </div>
         
         <!-- Evolution Modal -->
@@ -420,6 +450,9 @@
             
             // Load geography data
             loadGeographyData(artist.name);
+            
+            // Load TikTok data automatically
+            loadTikTokData(artist.name);
             
             // Genres
             const genresDiv = document.getElementById('artistGenres');
@@ -740,6 +773,41 @@
                     </div>
                 `;
             }).join('');
+        }
+        
+        // TikTok Data - Auto-load
+        async function loadTikTokData(artistName) {
+            try {
+                const response = await fetch('/api/artist-tiktok', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ artist_name: artistName })
+                });
+                const data = await response.json();
+                
+                if (response.ok && data.status === 'found' && data.tiktok) {
+                    displayTikTok(data.tiktok);
+                } else {
+                    // TikTok not found for this artist - hide section
+                    document.getElementById('tiktokSection').classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading TikTok:', error);
+                document.getElementById('tiktokSection').classList.add('hidden');
+            }
+        }
+        
+        function displayTikTok(data) {
+            // Update TikTok stats
+            document.getElementById('ttFollowers').textContent = formatNumber(data.followers);
+            document.getElementById('ttLikes').textContent = formatNumber(data.likes);
+            document.getElementById('ttVideos').textContent = formatNumber(data.videos);
+            document.getElementById('ttUsername').textContent = `@${data.username}`;
+            document.getElementById('ttProfileLink').href = data.tiktok_url || `https://www.tiktok.com/@${data.username}`;
+            document.getElementById('ttBio').textContent = data.bio || '—';
+            
+            // Show section
+            document.getElementById('tiktokSection').classList.remove('hidden');
         }
         
         // Evolution Feature

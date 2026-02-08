@@ -17,9 +17,8 @@ SPOTIPY_CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET', '6cd469cf554842b29f00
 YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY', 'AIzaSyCu5JG9wt4roONhqLbO9ca6m4wv6-JT3WA')
 LASTFM_API_KEY = os.getenv('LASTFM_API_KEY', '8aa9d7b90c4f1c1e0c5c3b5c1c5c3b5c')
 
-# RapidAPI TikTok (reemplazar con tu API key de RapidAPI)
-# Obtener en: https://rapidapi.com/
-RAPIDAPI_KEY = 'TU_RAPIDAPI_KEY_AQUI'
+# RapidAPI TikTok (from environment variable)
+RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY', None)
 
 # Inicializar cliente de Spotify
 auth_manager = SpotifyClientCredentials(
@@ -439,21 +438,66 @@ def search_artist():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+def search_tiktok_user(artist_name):
+    """Busca automáticamente el usuario de TikTok basado en el nombre del artista"""
+    
+    # Si no hay API key, retornar None
+    if not RAPIDAPI_KEY:
+        return None
+    
+    try:
+        # Variaciones del nombre a probar
+        search_variations = [
+            artist_name,
+            artist_name.replace(' ', ''),
+            artist_name.lower().replace(' ', ''),
+            artist_name.split()[0] if ' ' in artist_name else None,  # Primer nombre
+        ]
+        
+        search_variations = [v for v in search_variations if v]  # Eliminar None
+        
+        url = "https://tiktok-scraper7.p.rapidapi.com/user/info"
+        
+        headers = {
+            "X-RapidAPI-Key": RAPIDAPI_KEY,
+            "X-RapidAPI-Host": "tiktok-scraper7.p.rapidapi.com"
+        }
+        
+        # Intentar cada variación
+        for variation in search_variations:
+            try:
+                querystring = {"unique_id": variation}
+                response = requests.get(url, headers=headers, params=querystring, timeout=5)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data.get('data', {}).get('user'):
+                        return variation
+            except:
+                continue
+        
+        return None
+        
+    except Exception as e:
+        print(f"Error searching TikTok user: {e}")
+        return None
+
 def get_tiktok_stats(username):
     """Obtiene estadísticas de TikTok usando RapidAPI"""
     
     # Si no hay API key configurada, retornar datos demo
-    if not RAPIDAPI_KEY or RAPIDAPI_KEY == 'TU_RAPIDAPI_KEY_AQUI':
+    if not RAPIDAPI_KEY:
         return {
             'username': username,
             'followers': 0,
             'following': 0,
             'likes': 0,
             'videos': 0,
-            'bio': 'Configura tu RapidAPI key para ver datos reales',
+            'bio': 'Configure RAPIDAPI_KEY to see real TikTok data',
             'avatar': 'https://via.placeholder.com/150/667eea/ffffff?text=TT',
             'verified': False,
-            'demo_mode': True
+            'demo_mode': True,
+            'tiktok_url': f'https://www.tiktok.com/@{username}'
         }
     
     try:
@@ -483,9 +527,10 @@ def get_tiktok_stats(username):
                 'likes': stats.get('heartCount', 0),
                 'videos': stats.get('videoCount', 0),
                 'bio': user_data.get('signature', ''),
-                'avatar': user_data.get('avatarLarger', ''),
+                'avatar': user_data.get('avatarLarger', '') or 'https://via.placeholder.com/150/667eea/ffffff?text=TT',
                 'verified': user_data.get('verified', False),
-                'demo_mode': False
+                'demo_mode': False,
+                'tiktok_url': f'https://www.tiktok.com/@{user_data.get("uniqueId", username)}'
             }
         else:
             print(f"TikTok API error: {response.status_code}")
@@ -497,7 +542,7 @@ def get_tiktok_stats(username):
 
 @app.route('/api/tiktok', methods=['POST'])
 def scout_tiktok():
-    """Obtener estadísticas de TikTok"""
+    """Obtener estadísticas de TikTok por username manual"""
     data = request.get_json()
     username = data.get('username', '').strip().replace('@', '')
     
@@ -510,6 +555,41 @@ def scout_tiktok():
         return jsonify({'error': 'No se pudo obtener información de TikTok'}), 404
     
     return jsonify(tiktok_data)
+
+@app.route('/api/artist-tiktok', methods=['POST'])
+def get_artist_tiktok():
+    """Buscar TikTok automáticamente por nombre del artista"""
+    data = request.get_json()
+    artist_name = data.get('artist_name', '').strip()
+    
+    if not artist_name:
+        return jsonify({'error': 'Artist name required'}), 400
+    
+    # Buscar automáticamente el usuario de TikTok
+    tiktok_username = search_tiktok_user(artist_name)
+    
+    if not tiktok_username:
+        return jsonify({
+            'status': 'not_found',
+            'artist_name': artist_name,
+            'message': 'TikTok account not found for this artist'
+        })
+    
+    # Obtener estadísticas
+    tiktok_data = get_tiktok_stats(tiktok_username)
+    
+    if not tiktok_data:
+        return jsonify({
+            'status': 'not_found',
+            'artist_name': artist_name,
+            'message': 'Could not fetch TikTok data'
+        })
+    
+    return jsonify({
+        'status': 'found',
+        'artist_name': artist_name,
+        'tiktok': tiktok_data
+    })
 
 @app.route('/api/geography', methods=['POST'])
 def get_geography():
