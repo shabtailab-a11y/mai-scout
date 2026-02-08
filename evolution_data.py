@@ -285,6 +285,76 @@ def get_artist_evolution(artist_name_or_id):
     
     return None
 
+    # Feli Colina - 4 eras
+    "feli colina": {
+        "artist_name": "Feli Colina",
+        "spotify_id": "feli_colina",
+        "available": True,
+        "eras": [
+            {
+                "year_start": 2018,
+                "year_end": 2019,
+                "title": "Validación Artística - Abbey Road",
+                "trigger": "Ganar Camino a Abbey Road → Grabación en Londres + Festival debuts",
+                "audience_index": 0.1,
+                "multiplier_vs_prev": None,
+                "venue_level": "SUBWAY/BAR",
+                "example_venues": ["Subtes de Buenos Aires", "Bares pequeños CABA"],
+                "notes": "Artista underground en circuito de subtes. Propuesta experimental.",
+                "key_metric": "100 fans de base local"
+            },
+            {
+                "year_start": 2020,
+                "year_end": 2023,
+                "title": "Consagración Indie - El Valle Encantado",
+                "trigger": "Lanzamiento de El Valle Encantado + Niceto + Cosquín Rock",
+                "audience_index": 0.5,
+                "multiplier_vs_prev": 5.0,
+                "venue_level": "CLUB",
+                "example_venues": ["Niceto Club (CABA)", "Vorterix", "Cosquín Rock"],
+                "notes": "Explosión de culto. Salas pequeñas consolidadas. Slots en festivales nacionales.",
+                "key_metric": "500K Spotify monthly listeners"
+            },
+            {
+                "year_start": 2024,
+                "year_end": 2025,
+                "title": "Proyección Indie - Festivales Grandes",
+                "trigger": "Presencia consistente en Cosquín Rock + Consolidación de circuito de teatros",
+                "audience_index": 2.5,
+                "multiplier_vs_prev": 5.0,
+                "venue_level": "THEATER",
+                "example_venues": ["Teatro Ópera (CABA)", "Sala Sarmiento", "Festivales nacionales"],
+                "notes": "Escalada a teatros medianos. Referente de indie argentino.",
+                "key_metric": "5M Spotify monthly listeners"
+            },
+            {
+                "year_start": 2025,
+                "year_end": 2026,
+                "title": "Mainstream Breakthrough - Lollapalooza 2026",
+                "trigger": "Lxs Infernales reinvención + Lollapalooza 2026 + Expansión internacional",
+                "audience_index": 7.5,
+                "multiplier_vs_prev": 3.0,
+                "venue_level": "FESTIVAL+",
+                "example_venues": ["Lollapalooza (70k)", "Teatros premium España", "Festival circuit"],
+                "notes": "Prestigio crítico → tickets duros. Primera gira europea.",
+                "key_metric": "20M+ Spotify monthly listeners"
+            }
+        ],
+        "insights": [
+            "🎨 Indie argentino = cultismo → mainstream pipeline",
+            "🎯 Festival curation = legitimidad artística antes de escala",
+            "🌍 Presencia crítica en nicho habilita crossover",
+            "💿 Arte experimental con base de fans leal",
+            "🎪 Artista de culto → potencial de circuito premium"
+        ],
+        "audience_insights": [
+            "Validación Artística (2018-19): Ganar Camino a Abbey Road detonó un multiplicador de x4, sacándola del circuito de subtes (Index 0.1) a grabar en Londres y debutar en festivales de nicho (Index 0.5), validando su propuesta ante la industria.",
+            "Consagración Indie (2022-23): El lanzamiento de El Valle Encantado generó un crecimiento de x5, escalando de salas pequeñas a venues de 1k-2k (Niceto, Vorterix) y slots centrales en festivales nacionales (Cosquín Rock), consolidando una base de fans de culto.",
+            "Proyección Mainstream (2024-26): La reinvención con Lxs Infernales y su presencia en Lollapalooza 2026 impulsan un salto x3, abriendo la puerta a teatros de 3k-5k y expansión internacional a España, transformando el prestigio crítico en tickets duros."
+        ]
+    }
+}
+
 def list_available_artists():
     """List artists with Evolution data"""
     return [data["artist_name"] for data in EVOLUTION_DATA.values() if data.get("available")]
