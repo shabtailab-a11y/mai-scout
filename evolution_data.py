@@ -179,8 +179,8 @@ EVOLUTION_DATA = {
             "🎪 Tour revenue = 2nd pillar (streaming #1)"
         ],
         "audience_insights": [
-            "Tras el lanzamiento de X 100pre y su primera gira en arenas, Bad Bunny pasa de tener una audiencia concentrada en Latinoamérica a consolidar una base fuerte en Estados Unidos y Europa.",
-            "El salto a giras en estadios marca su transformación en un artista verdaderamente global, con crecimiento simultáneo en múltiples mercados y consumo sostenido en streaming a escala mundial."
+            "Tras X 100pre, la audiencia se multiplica aproximadamente por x3, pasando de venues de 1.000–3.000 personas a arenas de 15.000–20.000, con expansión fuerte desde Latinoamérica hacia EE.UU.",
+            "El salto a giras en estadios implica un crecimiento de ~x1.7, escalando de arenas a estadios de 60.000–80.000 personas y consolidando consumo simultáneo en América, Europa y otros mercados globales."
         ]
     },
     
@@ -271,8 +271,8 @@ EVOLUTION_DATA = {
             "🌐 Global reach = English-speaking TAM expansion"
         ],
         "audience_insights": [
-            "Durante la era Fearless y Red, Taylor Swift expande su audiencia desde el country estadounidense hacia un público pop internacional, aumentando su alcance fuera de su mercado original.",
-            "Con The Eras Tour, su audiencia deja de crecer solo por picos y entra en una fase de dominación global sostenida, consolidando múltiples generaciones de oyentes en todos los mercados clave."
+            "Entre Fearless y Red, la audiencia se multiplica cerca de x4, pasando de teatros y arenas medianas (3.000–8.000) a arenas completas de 15.000–25.000 personas, con expansión fuera del mercado country de EE.UU.",
+            "Con The Eras Tour, la audiencia se duplica (~x2), migrando de estadios de 40.000–55.000 personas a estadios de 70.000–90.000, alcanzando un pico de consumo global sostenido."
         ]
     }
 }
