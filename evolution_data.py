@@ -4,6 +4,94 @@ Fictional but data-informed audience growth trajectories
 """
 
 EVOLUTION_DATA = {
+    # Catriel y Paco Amoroso
+    "catriel y paco amoroso": {
+        "artist_name": "Catriel y Paco Amoroso",
+        "spotify_id": "catriel_paco_amoroso",
+        "available": True,
+        "eras": [
+            {
+                "year_start": 2015,
+                "year_end": 2016,
+                "title": "Argentine Trap Pioneers",
+                "trigger": "SoundCloud uploads → 'Bzrp Vol. 1' vibes",
+                "audience_index": 1,
+                "multiplier_vs_prev": None,
+                "venue_level": "CLUB",
+                "example_venues": ["La Otra Sala (Buenos Aires)", "Club Hipopótamo (CABA)"],
+                "notes": "Underground trap argentino. Regional following en CABA y GBA.",
+                "key_metric": "500K SoundCloud followers"
+            },
+            {
+                "year_start": 2017,
+                "year_end": 2018,
+                "title": "Colabs & Breakthrough",
+                "trigger": "Colaboraciones con Bizarrap, Ysy A",
+                "audience_index": 3,
+                "multiplier_vs_prev": 3.0,
+                "venue_level": "THEATER",
+                "example_venues": ["Teatro Ópera (CABA)", "Niceto Club (Buenos Aires)"],
+                "notes": "Trap latino network effect. Spotify playlists de curador.",
+                "key_metric": "15M Spotify monthly listeners"
+            },
+            {
+                "year_start": 2019,
+                "year_end": 2019,
+                "title": "Album Breakthrough",
+                "trigger": "Album de estudio con hits nacionales",
+                "audience_index": 6,
+                "multiplier_vs_prev": 2.0,
+                "venue_level": "ARENA",
+                "example_venues": ["Luna Park (Buenos Aires)", "Teatro Gran Rex (CABA)"],
+                "notes": "Primeros conciertos en arenas. Hit regional en plataformas.",
+                "key_metric": "40M Spotify streams"
+            },
+            {
+                "year_start": 2020,
+                "year_end": 2021,
+                "title": "Pandemic Digital Growth",
+                "trigger": "Streaming surge + TikTok virality",
+                "audience_index": 12,
+                "multiplier_vs_prev": 2.0,
+                "venue_level": "ARENA",
+                "example_venues": ["Estadio Obras Sanitarias (CABA)", "Festival Pepsi Music"],
+                "notes": "TikTok placement en Latam. Crecimiento exponencial en streams.",
+                "key_metric": "200M+ Spotify streams"
+            },
+            {
+                "year_start": 2022,
+                "year_end": 2023,
+                "title": "Latin America Expansion",
+                "trigger": "Tours por Colombia, México, Chile",
+                "audience_index": 20,
+                "multiplier_vs_prev": 1.67,
+                "venue_level": "ARENA",
+                "example_venues": ["Movistar Arena (CABA)", "Coliseo Jorge Fiallo (Medellín)"],
+                "notes": "Expansión regional exitosa. Ascenso en charts regionales.",
+                "key_metric": "500M+ total streams"
+            },
+            {
+                "year_start": 2024,
+                "year_end": 2026,
+                "title": "Consolidación & Tour de Estadios",
+                "trigger": "Festival appearances + International growth",
+                "audience_index": 30,
+                "multiplier_vs_prev": 1.5,
+                "venue_level": "STADIUM",
+                "example_venues": ["Estadio Tecnológico (Monterrey)", "Estadio Jorge Newbery (CABA)"],
+                "notes": "Trap argentino mainstream. Considerados referentes del género.",
+                "key_metric": "1B+ total streams"
+            }
+        ],
+        "insights": [
+            "🇦🇷 Trap argentino goes mainstream (CABA → Latam)",
+            "📱 TikTok = critical growth driver for urban genres",
+            "🎪 Regional duo → international touring en 8 años",
+            "💿 Streaming democratiza acceso a arenas",
+            "🎯 Genre-specific audience vs género pop genérico"
+        ]
+    },
+    
     # Bad Bunny
     "bad bunny": {
         "artist_name": "Bad Bunny",
