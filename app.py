@@ -602,5 +602,58 @@ def get_geography():
         print(f"Geography API error: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/evolution', methods=['POST'])
+def get_evolution():
+    """Get Evolution data for artist"""
+    data = request.get_json()
+    artist_name = data.get('artist_name', '').strip()
+    
+    if not artist_name:
+        return jsonify({'error': 'Artist name required'}), 400
+    
+    try:
+        from evolution_data import get_artist_evolution, list_available_artists
+        
+        # Try to find evolution data
+        evolution = get_artist_evolution(artist_name)
+        
+        if evolution and evolution.get('available'):
+            return jsonify({
+                'status': 'available',
+                'data': evolution
+            })
+        else:
+            # Return coming soon with available artists
+            return jsonify({
+                'status': 'coming_soon',
+                'available_artists': list_available_artists(),
+                'message': f'Evolution data coming soon for {artist_name}'
+            })
+    
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/evolution/email', methods=['POST'])
+def subscribe_evolution():
+    """Subscribe to Evolution feature notification"""
+    data = request.get_json()
+    email = data.get('email', '').strip()
+    role = data.get('role', '').strip()
+    artist = data.get('artist', '').strip()
+    
+    if not email or not role:
+        return jsonify({'error': 'Email and role required'}), 400
+    
+    try:
+        # TODO: Save to database or email service
+        # For now, just acknowledge
+        return jsonify({
+            'status': 'success',
+            'message': f'Thanks! We\'ll notify you when Evolution launches for {artist}',
+            'incentive': '2 months free when available'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
