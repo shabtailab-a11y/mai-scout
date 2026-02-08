@@ -340,6 +340,12 @@
                         </div>
                     </div>
                     
+                    <!-- Audience Insights -->
+                    <div id="audienceInsightsContainer" class="hidden mb-8 bg-gradient-to-r from-blue-900 from-opacity-20 to-cyan-900 to-opacity-20 rounded-lg p-6 border border-cyan-400 border-opacity-30">
+                        <h3 class="text-lg font-bold text-cyan-300 mb-4">🎯 Audience Insights</h3>
+                        <div id="audienceInsightsList" class="space-y-3 text-gray-200"></div>
+                    </div>
+                    
                     <!-- Timeline -->
                     <div class="mb-8">
                         <h3 class="text-xl font-bold text-white mb-4">⏱️ Eras & Milestones</h3>
@@ -983,7 +989,19 @@
             
             document.getElementById('timelineContainer').innerHTML = timelineHTML;
             
-            // Insights
+            // Audience Insights (if available)
+            if (evolutionData.audience_insights && evolutionData.audience_insights.length > 0) {
+                const audienceInsightsHTML = evolutionData.audience_insights.map(insight => `
+                    <p class="text-sm leading-relaxed">${insight}</p>
+                `).join('');
+                
+                document.getElementById('audienceInsightsList').innerHTML = audienceInsightsHTML;
+                document.getElementById('audienceInsightsContainer').classList.remove('hidden');
+            } else {
+                document.getElementById('audienceInsightsContainer').classList.add('hidden');
+            }
+            
+            // General Insights
             const insightsHTML = evolutionData.insights.map(insight => `
                 <li class="flex gap-2">
                     <span>•</span>
