@@ -89,6 +89,10 @@ EVOLUTION_DATA = {
             "🎪 Regional duo → international touring en 8 años",
             "💿 Streaming democratiza acceso a arenas",
             "🎯 Genre-specific audience vs género pop genérico"
+        ],
+        "audience_insights": [
+            "Entre 2017–2019, la audiencia crece aproximadamente x3, pasando de clubs de 500–1.500 personas a teatros de 2.000–5.000, con consolidación en CABA y expansión hacia el resto de Latinoamérica.",
+            "De 2019 a 2026, el crecimiento es de ~x5, escalando desde arenas medianas (5.000–8.000) a estadios de 30.000–50.000 personas, consolidando presencia en múltiples países de América Latina."
         ]
     },
     
@@ -273,6 +277,74 @@ EVOLUTION_DATA = {
         "audience_insights": [
             "Entre Fearless y Red, la audiencia se multiplica cerca de x4, pasando de teatros y arenas medianas (3.000–8.000) a arenas completas de 15.000–25.000 personas, con expansión fuera del mercado country de EE.UU.",
             "Con The Eras Tour, la audiencia se duplica (~x2), migrando de estadios de 40.000–55.000 personas a estadios de 70.000–90.000, alcanzando un pico de consumo global sostenido."
+        ]
+    },
+    
+    # Peso Pluma
+    "peso pluma": {
+        "artist_name": "Peso Pluma",
+        "spotify_id": "44O4JMsmU8hg6wMy3DHQvV",
+        "available": True,
+        "eras": [
+            {
+                "year_start": 2021,
+                "year_end": 2022,
+                "title": "Regional Mexican Trap Pioneer",
+                "trigger": "SoundCloud releases → early regional Mexican trap",
+                "audience_index": 1,
+                "multiplier_vs_prev": None,
+                "venue_level": "CLUB",
+                "example_venues": ["Sala Luna (Monterrey)", "Club Vertigo (Mexico City)"],
+                "notes": "Underground trap latino movement. Regional cult following in Northern Mexico.",
+                "key_metric": "1M SoundCloud followers"
+            },
+            {
+                "year_start": 2022,
+                "year_end": 2023,
+                "title": "Viral Breakthrough",
+                "trigger": "TikTok virality + streaming playlist placement",
+                "audience_index": 5,
+                "multiplier_vs_prev": 5.0,
+                "venue_level": "THEATER",
+                "example_venues": ["Teatro Metropolitan (Mexico City)", "Auditorio Telmex (Guadalajara)"],
+                "notes": "TikTok explosion in Latin America. Becomes fastest-growing Mexican artist.",
+                "key_metric": "50M+ Spotify monthly listeners"
+            },
+            {
+                "year_start": 2023,
+                "year_end": 2024,
+                "title": "Arena Domination",
+                "trigger": "Multiple arena tours across Latam + US collaborations",
+                "audience_index": 16,
+                "multiplier_vs_prev": 3.2,
+                "venue_level": "ARENA",
+                "example_venues": ["Palacio de los Deportes (Mexico City)", "Auditorio Nacional (Mexico City)"],
+                "notes": "Regional Mexican trap becomes mainstream. Crossover to US Latin charts.",
+                "key_metric": "500M+ total Spotify streams"
+            },
+            {
+                "year_start": 2024,
+                "year_end": 2026,
+                "title": "International Expansion",
+                "trigger": "US tours + collaborations with global artists",
+                "audience_index": 28,
+                "multiplier_vs_prev": 1.75,
+                "venue_level": "STADIUM",
+                "example_venues": ["Estadio Vallehermoso (Mexico City)", "Climate Pledge Arena (Seattle)"],
+                "notes": "Expansion beyond Latin America. First stadium tours in Mexico.",
+                "key_metric": "1B+ total streams"
+            }
+        ],
+        "insights": [
+            "🎸 Regional Mexican trap = new mainstream genre",
+            "📱 TikTok virality = fastest path to 50M+ monthly listeners",
+            "🌎 US crossover = next growth phase for Latin artists",
+            "🎪 Arena/Stadium touring = monetization of viral success",
+            "🎯 Fastest-growing Mexican artist since reggaeton explosion"
+        ],
+        "audience_insights": [
+            "Tras el breakthrough viral en TikTok (2022–2023), la audiencia crece ~x5, pasando de clubs de 500–1.500 personas a teatros de 3.000–6.000, consolidando presencia en México y expandiéndose hacia Latam.",
+            "De 2023 a 2026, el crecimiento es de ~x1.75, escalando desde arenas de 8.000–12.000 personas a estadios de 30.000–50.000, con presencia inicial en EE.UU. y consolidación en mercados clave de América Latina."
         ]
     }
 }
