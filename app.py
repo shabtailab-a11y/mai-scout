@@ -794,6 +794,56 @@ def spotlight_subscribe():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/spotlight-preview/<artist_slug>')
+def spotlight_preview(artist_slug):
+    """Get Spotlight preview HTML for artist"""
+    try:
+        # Convert slug to artist name
+        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
+        
+        # Get artist data from Spotify
+        search_results = spotify.search(q=artist_name, type='artist', limit=1)
+        if not search_results['artists']['items']:
+            return jsonify({'error': 'Artist not found'}), 404
+        
+        artist = search_results['artists']['items'][0]
+        
+        # Get YouTube channel
+        yt_stats = get_youtube_stats(artist['name'])
+        
+        # Build preview HTML
+        html = f"""
+        <div class="max-w-md mx-auto">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <img src="{artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'}" 
+                     class="w-32 h-32 rounded-full mx-auto mb-4">
+                <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
+                <p class="text-gray-400">{', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'}</p>
+            </div>
+            
+            <!-- Links -->
+            <div class="space-y-3 mb-8">
+                <a href="{artist['external_urls'].get('spotify', '#')}" target="_blank" 
+                   class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
+                    🎵 Listen on Spotify
+                </a>
+                {f'<a href="{yt_stats["channel_url"]}" target="_blank" class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">📺 YouTube Channel</a>' if yt_stats else ''}
+            </div>
+            
+            <!-- Subscribe -->
+            <div class="glass rounded-lg p-6">
+                <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
+                <p class="text-gray-300 text-sm">Get notified when {artist['name']} releases new music, videos, or announces shows.</p>
+            </div>
+        </div>
+        """
+        
+        return html
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 @app.route('/spotlight/<artist_slug>')
 def public_spotlight(artist_slug):
     """Public Spotlight page for artist"""
@@ -811,7 +861,7 @@ def public_spotlight(artist_slug):
         # Get YouTube channel
         yt_stats = get_youtube_stats(artist['name'])
         
-        # Render HTML page
+        # Render full HTML page
         html = f"""
         <!DOCTYPE html>
         <html>
@@ -832,7 +882,7 @@ def public_spotlight(artist_slug):
                     <img src="{artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'}" 
                          class="w-32 h-32 rounded-full mx-auto mb-4">
                     <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
-                    <p class="text-gray-400">{', '.join(artist['genres'][:3])}</p>
+                    <p class="text-gray-400">{', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'}</p>
                 </div>
                 
                 <!-- Links -->
