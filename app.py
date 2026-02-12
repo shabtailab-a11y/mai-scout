@@ -794,9 +794,9 @@ def spotlight_subscribe():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-@app.route('/api/spotlight-preview/<artist_slug>')
-def spotlight_preview(artist_slug):
-    """Get Spotlight preview HTML for artist"""
+@app.route('/api/spotlight-full/<artist_slug>')
+def spotlight_full(artist_slug):
+    """Get full Spotlight HTML content for embedding in modal"""
     try:
         # Convert slug to artist name
         artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
@@ -811,7 +811,7 @@ def spotlight_preview(artist_slug):
         # Get YouTube channel
         yt_stats = get_youtube_stats(artist['name'])
         
-        # Build preview HTML
+        # Build full Spotlight HTML (complete content with form)
         html = f"""
         <div class="max-w-md mx-auto">
             <!-- Header -->
@@ -834,7 +834,14 @@ def spotlight_preview(artist_slug):
             <!-- Subscribe -->
             <div class="glass rounded-lg p-6">
                 <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
-                <p class="text-gray-300 text-sm">Get notified when {artist['name']} releases new music, videos, or announces shows.</p>
+                <form onsubmit="return spotlightSubscribe(event, '{artist['name']}')">
+                    <input type="email" placeholder="your@email.com" 
+                           class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
+                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
+                        Subscribe
+                    </button>
+                </form>
+                <p class="text-gray-400 text-xs mt-3">Get notified when {artist['name']} releases new music, videos, or announces shows.</p>
             </div>
         </div>
         """
@@ -842,6 +849,7 @@ def spotlight_preview(artist_slug):
         return html
         
     except Exception as e:
+        print(f"Error in spotlight_full: {e}")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/spotlight/<artist_slug>')

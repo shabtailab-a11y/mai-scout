@@ -461,24 +461,23 @@
             </div>
         </div>
 
-        <!-- Spotlight Modal (Preview + Copy) -->
+        <!-- Spotlight Modal (Full Page View) -->
         <div id="spotlightModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div class="glass-dark rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                <div class="flex justify-between items-center mb-6">
-                    <h2 id="spotlightTitle" class="text-3xl font-bold text-white">✨ Spotlight</h2>
+            <div class="glass-dark rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-black bg-opacity-80 p-4 flex justify-between items-center border-b border-white border-opacity-10 z-10">
+                    <h2 class="text-2xl font-bold text-white">✨ Spotlight</h2>
                     <button onclick="closeSpotlight()" class="text-gray-400 hover:text-white text-2xl">✕</button>
                 </div>
 
-                <!-- Spotlight Preview -->
-                <div id="spotlightPreview" class="mb-8 space-y-6">
-                    <!-- Content loaded dynamically -->
+                <!-- Spotlight Full Content (loaded dynamically) -->
+                <div id="spotlightFullContent" class="p-8">
                     <div class="text-center text-gray-400">
-                        <p>Loading preview...</p>
+                        <p>Loading Spotlight...</p>
                     </div>
                 </div>
 
-                <!-- Copy Link Section (at the bottom) -->
-                <div class="bg-gradient-to-r from-yellow-900 from-opacity-30 to-orange-900 to-opacity-30 rounded-lg p-6 border border-orange-500 border-opacity-50">
+                <!-- Copy Link Section (Sticky at bottom) -->
+                <div class="sticky bottom-0 bg-black bg-opacity-90 p-6 border-t border-white border-opacity-10">
                     <p class="text-white font-bold mb-4">📱 Share this link as your "link in bio":</p>
                     <div class="flex gap-3">
                         <input 
@@ -1297,49 +1296,38 @@
             const baseUrl = window.location.origin;
             const spotlightUrl = `${baseUrl}/spotlight/${slug}`;
             
-            document.getElementById('spotlightTitle').textContent = `✨ ${artistName} - Spotlight`;
             document.getElementById('spotlightLink').value = spotlightUrl;
             document.getElementById('spotlightModal').classList.remove('hidden');
             
-            // Load spotlight preview
+            // Load full Spotlight content
             try {
-                const response = await fetch(`/api/spotlight-preview/${slug}`);
+                const response = await fetch(`/api/spotlight-full/${slug}`);
                 const html = await response.text();
                 
-                // Parse and display the content (extract relevant parts)
-                const parser = new DOMParser();
-                const doc = parser.parseFromString(html, 'text/html');
+                // Extract the content from the HTML (remove html/head/body tags, keep just the body content)
+                const bodyContent = html.replace(/<!DOCTYPE[\s\S]*?>/i, '')
+                                       .replace(/<html[\s\S]*?>/i, '')
+                                       .replace(/<\/html>/i, '')
+                                       .replace(/<head[\s\S]*?<\/head>/i, '')
+                                       .replace(/<body[^>]*>/i, '')
+                                       .replace(/<\/body>/i, '')
+                                       .replace(/<script[\s\S]*?<\/script>/g, '');
                 
-                // Extract the main content div
-                const mainContent = doc.body.innerHTML.match(/<div class="max-w-md mx-auto">([\s\S]*?)<\/div>/);
-                
-                if (mainContent) {
-                    // Remove the form part and keep just the preview
-                    let previewHTML = mainContent[1];
-                    previewHTML = previewHTML.replace(/<form[\s\S]*?<\/form>/g, '');
-                    previewHTML = previewHTML.replace(/<script[\s\S]*?<\/script>/g, '');
-                    
-                    document.getElementById('spotlightPreview').innerHTML = previewHTML;
-                } else {
-                    // Fallback: show basic info
-                    const artist = document.getElementById('artistName').textContent;
-                    document.getElementById('spotlightPreview').innerHTML = `
-                        <div class="text-center">
+                document.getElementById('spotlightFullContent').innerHTML = bodyContent;
+            } catch (error) {
+                console.error('Error loading Spotlight:', error);
+                // Fallback content
+                const artist = document.getElementById('artistName').textContent;
+                document.getElementById('spotlightFullContent').innerHTML = `
+                    <div class="max-w-md mx-auto">
+                        <div class="text-center mb-8">
                             <img src="${document.getElementById('artistImage').src}" class="w-32 h-32 rounded-full mx-auto mb-4">
                             <h1 class="text-3xl font-bold text-white mb-2">${artist}</h1>
                             <p class="text-gray-400">Artist Profile</p>
                         </div>
-                    `;
-                }
-            } catch (error) {
-                console.error('Error loading preview:', error);
-                // Fallback content
-                const artist = document.getElementById('artistName').textContent;
-                document.getElementById('spotlightPreview').innerHTML = `
-                    <div class="text-center">
-                        <img src="${document.getElementById('artistImage').src}" class="w-32 h-32 rounded-full mx-auto mb-4">
-                        <h1 class="text-3xl font-bold text-white mb-2">${artist}</h1>
-                        <p class="text-gray-400">Share this link with your fans</p>
+                        <div class="glass rounded-lg p-6">
+                            <p class="text-gray-300">This is your Spotlight page preview. Copy the link below to share it as your "link in bio".</p>
+                        </div>
                     </div>
                 `;
             }
@@ -1357,6 +1345,33 @@
             }).catch(() => {
                 alert('Error copying to clipboard');
             });
+        }
+        
+        async function spotlightSubscribe(event, artistName) {
+            event.preventDefault();
+            const email = event.target.querySelector('input[type="email"]').value;
+            
+            try {
+                const response = await fetch('/api/spotlight-subscribe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ artist_name: artistName, email: email })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    event.target.querySelector('input[type="email"]').value = '';
+                    alert('✅ ' + data.message);
+                } else {
+                    alert('❌ Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error subscribing');
+            }
+            
+            return false;
         }
     </script>
 </body>
