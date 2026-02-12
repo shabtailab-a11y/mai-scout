@@ -360,6 +360,26 @@ def get_artist_evolution(artist_name_or_id):
     }
 }
 
+def get_artist_evolution(artist_name_or_id):
+    """Get evolution data for artist if available"""
+    artist_key = artist_name_or_id.lower().strip()
+    
+    # Try direct match (by dictionary key)
+    if artist_key in EVOLUTION_DATA:
+        return EVOLUTION_DATA[artist_key]
+    
+    # Try Spotify ID match
+    for key, data in EVOLUTION_DATA.items():
+        if data.get("spotify_id") == artist_name_or_id:
+            return data
+    
+    # Try artist_name match (case-insensitive)
+    for key, data in EVOLUTION_DATA.items():
+        if data.get("artist_name", "").lower() == artist_key:
+            return data
+    
+    return None
+
 def list_available_artists():
     """List artists with Evolution data"""
     return [data["artist_name"] for data in EVOLUTION_DATA.values() if data.get("available")]
