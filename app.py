@@ -19,23 +19,15 @@ LASTFM_API_KEY = os.getenv('LASTFM_API_KEY', '8aa9d7b90c4f1c1e0c5c3b5c1c5c3b5c')
 # RapidAPI TikTok (from environment variable)
 RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY', None)
 
-# Inicializar cliente de Spotify (with error handling)
-try:
-    auth_manager = SpotifyClientCredentials(
-        client_id=SPOTIPY_CLIENT_ID,
-        client_secret=SPOTIPY_CLIENT_SECRET
-    )
-    spotify = spotipy.Spotify(auth_manager=auth_manager)
-except Exception as e:
-    print(f"Warning: Spotify initialization failed: {e}")
-    spotify = None
+# Inicializar cliente de Spotify
+auth_manager = SpotifyClientCredentials(
+    client_id=SPOTIPY_CLIENT_ID,
+    client_secret=SPOTIPY_CLIENT_SECRET
+)
+spotify = spotipy.Spotify(auth_manager=auth_manager)
 
-# Inicializar cliente de YouTube (with error handling)
-try:
-    youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
-except Exception as e:
-    print(f"Warning: YouTube initialization failed: {e}")
-    youtube = None
+# Inicializar cliente de YouTube
+youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
 
 # Spotlight Data Storage (In-memory for now)
 SPOTLIGHT_DATA = {}
