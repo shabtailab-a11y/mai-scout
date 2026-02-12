@@ -267,29 +267,7 @@ EVOLUTION_DATA = {
             "Validación Hard-Ticket (2023): El lanzamiento de Génesis estabilizó la demanda en arenas mayores de 18k+ durante el Doble P Tour, transformando el volumen de streaming en venta dura de tickets y agotando 40 fechas en Norteamérica.",
             "Estatus de Headliner (2024-25): Con el ciclo Éxodo y el slot principal en Coachella (125k pax), la infraestructura escaló a festivales masivos y arenas premium (Madison Square Garden), diversificando el revenue con una producción escénica de alto coste."
         ]
-    }
-}
-
-def get_artist_evolution(artist_name_or_id):
-    """Get evolution data for artist if available"""
-    artist_key = artist_name_or_id.lower().strip()
-    
-    # Try direct match (by dictionary key)
-    if artist_key in EVOLUTION_DATA:
-        return EVOLUTION_DATA[artist_key]
-    
-    # Try Spotify ID match
-    for key, data in EVOLUTION_DATA.items():
-        if data.get("spotify_id") == artist_name_or_id:
-            return data
-    
-    # Try artist_name match (case-insensitive)
-    for key, data in EVOLUTION_DATA.items():
-        if data.get("artist_name", "").lower() == artist_key:
-            return data
-    
-    return None
-
+    },
     # Feli Colina - 4 eras
     "feli colina": {
         "artist_name": "Feli Colina",
