@@ -5,10 +5,11 @@ import requests
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
-import json
+
+app = Flask(__name__, static_folder='.')
+CORS(app)
+
 import os
-from datetime import datetime
-from pathlib import Path
 
 # Credenciales (from environment variables)
 SPOTIPY_CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID', 'e490c3b2db6744ce884b9d27f426d4f7')
@@ -28,71 +29,6 @@ spotify = spotipy.Spotify(auth_manager=auth_manager)
 
 # Inicializar cliente de YouTube
 youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
-
-# Spotlight Data Storage (JSON-based)
-SPOTLIGHT_DATA_DIR = Path('data/spotlight')
-SPOTLIGHT_DATA_DIR.mkdir(parents=True, exist_ok=True)
-
-class SpotlightManager:
-    """Manage Spotlight data for artists"""
-    
-    @staticmethod
-    def get_spotlight_file(artist_name):
-        """Get spotlight data file path for artist"""
-        safe_name = artist_name.lower().replace(' ', '_').replace('&', 'and')
-        return SPOTLIGHT_DATA_DIR / f"{safe_name}.json"
-    
-    @staticmethod
-    def load_spotlight(artist_name):
-        """Load spotlight config for artist"""
-        filepath = SpotlightManager.get_spotlight_file(artist_name)
-        if filepath.exists():
-            with open(filepath, 'r') as f:
-                return json.load(f)
-        return None
-    
-    @staticmethod
-    def save_spotlight(artist_name, data):
-        """Save spotlight config for artist"""
-        filepath = SpotlightManager.get_spotlight_file(artist_name)
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
-        return data
-    
-    @staticmethod
-    def create_default_spotlight(artist_name, artist_data=None):
-        """Create default spotlight config"""
-        return {
-            'artist_name': artist_name,
-            'enabled': False,
-            'bio': '',
-            'links': {
-                'spotify': '',
-                'instagram': '',
-                'tiktok': '',
-                'web': '',
-                'merch': '',
-                'tickets': ''
-            },
-            'modules': {
-                'latest_release': True,
-                'latest_video': True,
-                'tickets': True,
-                'links': True,
-                'subscribe': True,
-                'news': False
-            },
-            'module_order': ['latest_release', 'latest_video', 'tickets', 'links', 'subscribe'],
-            'subscribers': [],
-            'analytics': {
-                'total_clicks': 0,
-                'total_subscribers': 0,
-                'recent_clicks': [],
-                'recent_subs': []
-            },
-            'created_at': datetime.now().isoformat(),
-            'updated_at': datetime.now().isoformat()
-        }
 
 def extract_artist_id(url):
     """Extrae el ID del artista de una URL de Spotify"""
@@ -825,157 +761,6 @@ def unlock_feature():
             'status': 'success',
             'message': f'Thanks! We\'ll notify you when {feature_name} launches for {artist}'
         })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ========== SPOTLIGHT ROUTES ==========
-
-@app.route('/api/spotlight/<artist_name>', methods=['GET'])
-def get_spotlight(artist_name):
-    """Get or create default Spotlight config for artist"""
-    try:
-        spotlight = SpotlightManager.load_spotlight(artist_name)
-        
-        if not spotlight:
-            # Create default
-            spotlight = SpotlightManager.create_default_spotlight(artist_name)
-            SpotlightManager.save_spotlight(artist_name, spotlight)
-        
-        return jsonify(spotlight)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/spotlight/<artist_name>', methods=['POST'])
-def update_spotlight(artist_name):
-    """Update Spotlight config for artist"""
-    try:
-        data = request.get_json()
-        
-        # Load existing or create new
-        spotlight = SpotlightManager.load_spotlight(artist_name) or \
-                    SpotlightManager.create_default_spotlight(artist_name)
-        
-        # Update fields
-        spotlight['enabled'] = data.get('enabled', spotlight['enabled'])
-        spotlight['bio'] = data.get('bio', spotlight['bio'])
-        spotlight['links'] = data.get('links', spotlight['links'])
-        spotlight['modules'] = data.get('modules', spotlight['modules'])
-        spotlight['module_order'] = data.get('module_order', spotlight['module_order'])
-        spotlight['updated_at'] = datetime.now().isoformat()
-        
-        # Save
-        SpotlightManager.save_spotlight(artist_name, spotlight)
-        
-        return jsonify({'status': 'success', 'spotlight': spotlight})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/spotlight/<artist_name>/subscribe', methods=['POST'])
-def subscribe_spotlight(artist_name):
-    """Subscribe to artist Spotlight"""
-    try:
-        data = request.get_json()
-        email = data.get('email', '').strip()
-        
-        if not email:
-            return jsonify({'error': 'Email required'}), 400
-        
-        # Load spotlight
-        spotlight = SpotlightManager.load_spotlight(artist_name)
-        if not spotlight:
-            return jsonify({'error': 'Spotlight not found'}), 404
-        
-        # Add subscriber (avoid duplicates)
-        if email not in spotlight['subscribers']:
-            spotlight['subscribers'].append(email)
-            spotlight['analytics']['total_subscribers'] = len(spotlight['subscribers'])
-            
-            # Log recent subscription
-            spotlight['analytics']['recent_subs'].append({
-                'email': email,
-                'timestamp': datetime.now().isoformat()
-            })
-            # Keep only last 100
-            if len(spotlight['analytics']['recent_subs']) > 100:
-                spotlight['analytics']['recent_subs'] = spotlight['analytics']['recent_subs'][-100:]
-            
-            SpotlightManager.save_spotlight(artist_name, spotlight)
-        
-        return jsonify({
-            'status': 'success',
-            'message': f'Subscribed! You\'ll get updates from {artist_name}',
-            'total_subscribers': len(spotlight['subscribers'])
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/spotlight/<artist_slug>', methods=['GET'])
-def public_spotlight(artist_slug):
-    """Public Spotlight page for artist"""
-    try:
-        # Convert slug to artist name (simple: replace underscore with space, capitalize)
-        artist_name = artist_slug.replace('_', ' ').title()
-        
-        # Load spotlight
-        spotlight = SpotlightManager.load_spotlight(artist_name)
-        
-        if not spotlight or not spotlight.get('enabled'):
-            return jsonify({'error': 'Spotlight not found or not enabled'}), 404
-        
-        # Get artist data from Spotify
-        try:
-            search_results = spotify.search(q=artist_name, type='artist', limit=1)
-            if search_results['artists']['items']:
-                artist_data = search_results['artists']['items'][0]
-                spotlight['spotify_image'] = artist_data['images'][0]['url'] if artist_data['images'] else None
-                spotlight['spotify_url'] = artist_data['external_urls'].get('spotify')
-            
-            # Get recent albums/releases
-            albums = spotify.artist_albums(artist_data['id'], limit=1, album_type='album,single')
-            if albums['items']:
-                latest = albums['items'][0]
-                spotlight['latest_release'] = {
-                    'name': latest['name'],
-                    'image': latest['images'][0]['url'] if latest['images'] else None,
-                    'release_date': latest['release_date'],
-                    'spotify_url': latest['external_urls'].get('spotify')
-                }
-        except:
-            pass
-        
-        # Get latest YouTube video
-        try:
-            search_response = youtube.search().list(
-                q=artist_name + ' official',
-                type='video',
-                part='id,snippet',
-                maxResults=1,
-                order='date'
-            ).execute()
-            
-            if search_response['items']:
-                video = search_response['items'][0]
-                spotlight['latest_video'] = {
-                    'title': video['snippet']['title'],
-                    'thumbnail': video['snippet']['thumbnails']['default']['url'],
-                    'url': f"https://www.youtube.com/watch?v={video['id']['videoId']}"
-                }
-        except:
-            pass
-        
-        # Track click
-        spotlight['analytics']['total_clicks'] += 1
-        spotlight['analytics']['recent_clicks'].append({
-            'timestamp': datetime.now().isoformat(),
-            'ip': request.remote_addr
-        })
-        # Keep only last 500
-        if len(spotlight['analytics']['recent_clicks']) > 500:
-            spotlight['analytics']['recent_clicks'] = spotlight['analytics']['recent_clicks'][-500:]
-        
-        SpotlightManager.save_spotlight(artist_name, spotlight)
-        
-        return jsonify(spotlight)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
