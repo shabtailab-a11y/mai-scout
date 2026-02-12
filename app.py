@@ -764,5 +764,127 @@ def unlock_feature():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# ========== SPOTLIGHT (SIMPLE) ==========
+
+# In-memory spotlight subscribers
+SPOTLIGHT_SUBSCRIBERS = {}
+
+@app.route('/api/spotlight-subscribe', methods=['POST'])
+def spotlight_subscribe():
+    """Subscribe to artist Spotlight updates"""
+    try:
+        data = request.get_json()
+        artist_name = data.get('artist_name', '').strip()
+        email = data.get('email', '').strip()
+        
+        if not artist_name or not email:
+            return jsonify({'error': 'Artist name and email required'}), 400
+        
+        # Add to subscribers
+        if artist_name not in SPOTLIGHT_SUBSCRIBERS:
+            SPOTLIGHT_SUBSCRIBERS[artist_name] = []
+        
+        if email not in SPOTLIGHT_SUBSCRIBERS[artist_name]:
+            SPOTLIGHT_SUBSCRIBERS[artist_name].append(email)
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'Thanks! You\'ll get updates about {artist_name}\'s new music, videos, and shows.'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/spotlight/<artist_slug>')
+def public_spotlight(artist_slug):
+    """Public Spotlight page for artist"""
+    try:
+        # Convert slug to artist name
+        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
+        
+        # Get artist data from Spotify
+        search_results = spotify.search(q=artist_name, type='artist', limit=1)
+        if not search_results['artists']['items']:
+            return jsonify({'error': 'Artist not found'}), 404
+        
+        artist = search_results['artists']['items'][0]
+        
+        # Get YouTube channel
+        yt_stats = get_youtube_stats(artist['name'])
+        
+        # Render HTML page
+        html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{artist['name']} - Spotlight</title>
+            <script src="https://cdn.tailwindcss.com"></script>
+            <style>
+                body {{ background: #0a0e27; color: #e0e6ed; }}
+                .glass {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }}
+            </style>
+        </head>
+        <body class="p-4 md:p-8">
+            <div class="max-w-md mx-auto">
+                <!-- Header -->
+                <div class="text-center mb-8">
+                    <img src="{artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'}" 
+                         class="w-32 h-32 rounded-full mx-auto mb-4">
+                    <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
+                    <p class="text-gray-400">{', '.join(artist['genres'][:3])}</p>
+                </div>
+                
+                <!-- Links -->
+                <div class="space-y-3 mb-8">
+                    <a href="{artist['external_urls'].get('spotify', '#')}" target="_blank" 
+                       class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
+                        🎵 Listen on Spotify
+                    </a>
+                    {f'<a href="{yt_stats["channel_url"]}" target="_blank" class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">📺 YouTube Channel</a>' if yt_stats else ''}
+                </div>
+                
+                <!-- Subscribe -->
+                <div class="glass rounded-lg p-6">
+                    <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
+                    <form onsubmit="return subscribe()">
+                        <input type="email" id="email" placeholder="your@email.com" 
+                               class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
+                        <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
+                            Subscribe
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <script>
+                async function subscribe() {{
+                    const email = document.getElementById('email').value;
+                    try {{
+                        const response = await fetch('/api/spotlight-subscribe', {{
+                            method: 'POST',
+                            headers: {{'Content-Type': 'application/json'}},
+                            body: JSON.stringify({{ artist_name: '{artist['name']}', email: email }})
+                        }});
+                        const data = await response.json();
+                        if (data.status === 'success') {{
+                            alert('✅ Subscribed!');
+                            document.getElementById('email').value = '';
+                        }}
+                    }} catch (e) {{
+                        alert('Error subscribing');
+                    }}
+                    return false;
+                }}
+            </script>
+        </body>
+        </html>
+        """
+        
+        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

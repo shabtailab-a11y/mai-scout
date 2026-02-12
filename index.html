@@ -136,6 +136,13 @@
                 >
                     📈 Evolution
                 </button>
+                <button 
+                    onclick="openSpotlight()"
+                    class="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-4 px-8 rounded-lg text-lg"
+                    title="Link in bio for fans"
+                >
+                    ✨ Spotlight
+                </button>
             </div>
             
             <!-- Quick Demo Links -->
@@ -449,6 +456,56 @@
                                 Notify Me
                             </button>
                         </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Spotlight Modal (Simple) -->
+        <div id="spotlightModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div class="glass-dark rounded-2xl p-8 max-w-2xl w-full">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 id="spotlightTitle" class="text-3xl font-bold text-white">✨ Spotlight</h2>
+                    <button onclick="closeSpotlight()" class="text-gray-400 hover:text-white text-2xl">✕</button>
+                </div>
+
+                <div class="space-y-6">
+                    <div class="bg-white bg-opacity-5 rounded-lg p-6">
+                        <p class="text-gray-300 mb-4">📱 Share this link as your "link in bio":</p>
+                        <div class="flex gap-3">
+                            <input 
+                                type="text" 
+                                id="spotlightLink" 
+                                readonly
+                                class="flex-1 p-3 rounded-lg bg-white bg-opacity-10 text-cyan-400 font-mono text-sm"
+                            >
+                            <button 
+                                onclick="copySpotlightLink()"
+                                class="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-3 rounded-lg font-bold"
+                            >
+                                📋 Copy
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="bg-white bg-opacity-5 rounded-lg p-6">
+                        <p class="text-white font-bold mb-3">📧 Connect with fans:</p>
+                        <form onsubmit="subscribeSpotlight(event)">
+                            <input 
+                                type="email" 
+                                id="spotlightEmail"
+                                placeholder="Enter your email"
+                                class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3"
+                                required
+                            >
+                            <button 
+                                type="submit"
+                                class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg"
+                            >
+                                Subscribe to Updates
+                            </button>
+                        </form>
+                        <p class="text-gray-400 text-sm mt-3">Get notified when this artist releases new music, videos, or announces shows.</p>
                     </div>
                 </div>
             </div>
@@ -1239,6 +1296,65 @@
                 scoutTikTok();
             }
         });
+
+        // ========== SPOTLIGHT (SIMPLE) ==========
+        
+        function openSpotlight() {
+            const artistName = document.getElementById('artistName').textContent.trim();
+            if (!artistName) {
+                alert('Please search for an artist first');
+                return;
+            }
+            
+            const slug = artistName.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and');
+            const baseUrl = window.location.origin;
+            const spotlightUrl = `${baseUrl}/spotlight/${slug}`;
+            
+            document.getElementById('spotlightTitle').textContent = `✨ ${artistName} - Spotlight`;
+            document.getElementById('spotlightLink').value = spotlightUrl;
+            document.getElementById('spotlightModal').classList.remove('hidden');
+        }
+        
+        function closeSpotlight() {
+            document.getElementById('spotlightModal').classList.add('hidden');
+        }
+        
+        function copySpotlightLink() {
+            const link = document.getElementById('spotlightLink');
+            link.select();
+            navigator.clipboard.writeText(link.value).then(() => {
+                alert('✅ Link copied to clipboard!');
+            }).catch(() => {
+                alert('Error copying to clipboard');
+            });
+        }
+        
+        async function subscribeSpotlight(event) {
+            event.preventDefault();
+            const email = document.getElementById('spotlightEmail').value;
+            const artistName = document.getElementById('artistName').textContent.trim();
+            
+            try {
+                const response = await fetch('/api/spotlight-subscribe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ artist_name: artistName, email: email })
+                });
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    alert('✅ ' + data.message);
+                    document.getElementById('spotlightEmail').value = '';
+                    closeSpotlight();
+                } else {
+                    alert('❌ Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('Error subscribing');
+            }
+        }
     </script>
 </body>
 </html>
