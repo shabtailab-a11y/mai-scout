@@ -29,34 +29,21 @@ spotify = spotipy.Spotify(auth_manager=auth_manager)
 # Inicializar cliente de YouTube
 youtube = build('youtube', 'v3', developerKey=YOUTUBE_API_KEY)
 
-# Spotlight Data Storage (JSON-based)
-SPOTLIGHT_DATA_DIR = Path('data/spotlight')
-SPOTLIGHT_DATA_DIR.mkdir(parents=True, exist_ok=True)
+# Spotlight Data Storage (In-memory for now)
+SPOTLIGHT_DATA = {}
 
 class SpotlightManager:
     """Manage Spotlight data for artists"""
     
     @staticmethod
-    def get_spotlight_file(artist_name):
-        """Get spotlight data file path for artist"""
-        safe_name = artist_name.lower().replace(' ', '_').replace('&', 'and')
-        return SPOTLIGHT_DATA_DIR / f"{safe_name}.json"
-    
-    @staticmethod
     def load_spotlight(artist_name):
         """Load spotlight config for artist"""
-        filepath = SpotlightManager.get_spotlight_file(artist_name)
-        if filepath.exists():
-            with open(filepath, 'r') as f:
-                return json.load(f)
-        return None
+        return SPOTLIGHT_DATA.get(artist_name.lower())
     
     @staticmethod
     def save_spotlight(artist_name, data):
         """Save spotlight config for artist"""
-        filepath = SpotlightManager.get_spotlight_file(artist_name)
-        with open(filepath, 'w') as f:
-            json.dump(data, f, indent=2)
+        SPOTLIGHT_DATA[artist_name.lower()] = data
         return data
     
     @staticmethod
@@ -929,18 +916,22 @@ def public_spotlight(artist_slug):
                 artist_data = search_results['artists']['items'][0]
                 spotlight['spotify_image'] = artist_data['images'][0]['url'] if artist_data['images'] else None
                 spotlight['spotify_url'] = artist_data['external_urls'].get('spotify')
-            
-            # Get recent albums/releases
-            albums = spotify.artist_albums(artist_data['id'], limit=1, album_type='album,single')
-            if albums['items']:
-                latest = albums['items'][0]
-                spotlight['latest_release'] = {
-                    'name': latest['name'],
-                    'image': latest['images'][0]['url'] if latest['images'] else None,
-                    'release_date': latest['release_date'],
-                    'spotify_url': latest['external_urls'].get('spotify')
-                }
-        except:
+                
+                # Get recent albums/releases
+                try:
+                    albums = spotify.artist_albums(artist_data['id'], limit=1, album_type='album,single')
+                    if albums['items']:
+                        latest = albums['items'][0]
+                        spotlight['latest_release'] = {
+                            'name': latest['name'],
+                            'image': latest['images'][0]['url'] if latest['images'] else None,
+                            'release_date': latest['release_date'],
+                            'spotify_url': latest['external_urls'].get('spotify')
+                        }
+                except:
+                    pass
+        except Exception as e:
+            print(f"Error fetching Spotify data: {e}")
             pass
         
         # Get latest YouTube video
@@ -953,14 +944,15 @@ def public_spotlight(artist_slug):
                 order='date'
             ).execute()
             
-            if search_response['items']:
+            if search_response.get('items'):
                 video = search_response['items'][0]
                 spotlight['latest_video'] = {
                     'title': video['snippet']['title'],
                     'thumbnail': video['snippet']['thumbnails']['default']['url'],
                     'url': f"https://www.youtube.com/watch?v={video['id']['videoId']}"
                 }
-        except:
+        except Exception as e:
+            print(f"Error fetching YouTube data: {e}")
             pass
         
         # Track click
@@ -980,4 +972,4 @@ def public_spotlight(artist_slug):
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
