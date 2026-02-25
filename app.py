@@ -828,59 +828,208 @@ def spotlight_subscribe():
         return jsonify({'error': str(e)}), 500
 
 
+def _get_spotlight_data(artist_name):
+    """Fetch all data needed for Spotlight: artist, YouTube, latest release, shows, bio."""
+    search_results = spotify.search(q=artist_name, type='artist', limit=1)
+    if not search_results['artists']['items']:
+        return None
+    artist = search_results['artists']['items'][0]
+
+    # YouTube — last uploaded video
+    yt_stats = get_youtube_stats(artist['name'])
+    last_video = yt_stats['recent_videos'][0] if yt_stats and yt_stats.get('recent_videos') else None
+
+    # Latest Spotify release
+    albums = spotify.artist_albums(artist['id'], album_type='album,single', limit=1)
+    latest_release = albums['items'][0] if albums['items'] else None
+
+    # Upcoming shows — Bandsintown (free, no auth)
+    shows = []
+    try:
+        bt = requests.get(
+            f"https://rest.bandsintown.com/artists/{requests.utils.quote(artist['name'])}/events",
+            params={'app_id': 'mai-scout', 'date': 'upcoming'},
+            timeout=5
+        )
+        if bt.ok and isinstance(bt.json(), list):
+            shows = bt.json()[:4]
+    except Exception:
+        pass
+
+    # Smart bio — Last.fm first, then generated
+    bio = ''
+    if LASTFM_API_KEY:
+        lastfm = get_lastfm_data(artist['name'])
+        if lastfm:
+            bio = lastfm.get('bio', '')
+    if not bio:
+        genres_str = ', '.join(artist['genres'][:2]) if artist['genres'] else 'music'
+        followers = artist['followers']['total']
+        bio = (f"{artist['name']} is a {genres_str} artist with "
+               f"{followers:,} followers on Spotify.")
+
+    # Merch — link to official merch search
+    merch_url = f"https://www.google.com/search?q={requests.utils.quote(artist['name'])}+merch+official"
+
+    return {
+        'artist': artist,
+        'yt_stats': yt_stats,
+        'last_video': last_video,
+        'latest_release': latest_release,
+        'shows': shows,
+        'bio': bio,
+        'merch_url': merch_url,
+    }
+
+
+def _build_spotlight_body(d, subscribe_form_js):
+    """Build the inner HTML body content for Spotlight (modal + public page)."""
+    artist = d['artist']
+    last_video = d['last_video']
+    latest_release = d['latest_release']
+    shows = d['shows']
+    bio = d['bio']
+    merch_url = d['merch_url']
+    yt_stats = d['yt_stats']
+
+    name = artist['name']
+    image = artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'
+    genres = ', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'
+    spotify_url = artist['external_urls'].get('spotify', '#')
+
+    # Smart bio block
+    bio_block = f"""
+    <div class="glass rounded-lg p-4 mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">🧠 Smart Bio</h2>
+        <p class="text-gray-200 text-sm leading-relaxed">{bio[:300]}{'…' if len(bio) > 300 else ''}</p>
+    </div>""" if bio else ''
+
+    # Latest YouTube video block
+    if last_video:
+        yt_block = f"""
+    <div class="glass rounded-lg overflow-hidden mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider px-4 pt-4 mb-2">▶️ Latest Video</h2>
+        <a href="{last_video['url']}" target="_blank" class="flex items-center gap-3 px-4 pb-4 hover:bg-white hover:bg-opacity-5 transition">
+            <img src="{last_video['thumbnail']}" class="w-20 h-14 object-cover rounded flex-shrink-0">
+            <div class="min-w-0">
+                <p class="text-white text-sm font-medium truncate">{last_video['title']}</p>
+                <p class="text-gray-400 text-xs">{last_video['views']:,} views</p>
+            </div>
+        </a>
+    </div>"""
+    else:
+        yt_block = ''
+
+    # Latest Spotify release block
+    if latest_release:
+        rel_img = latest_release['images'][0]['url'] if latest_release.get('images') else ''
+        rel_url = latest_release['external_urls'].get('spotify', '#')
+        rel_date = latest_release.get('release_date', '')[:4]
+        rel_type = latest_release.get('album_type', 'release').capitalize()
+        release_block = f"""
+    <div class="glass rounded-lg overflow-hidden mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider px-4 pt-4 mb-2">🎵 Latest Release</h2>
+        <a href="{rel_url}" target="_blank" class="flex items-center gap-3 px-4 pb-4 hover:bg-white hover:bg-opacity-5 transition">
+            {'<img src="' + rel_img + '" class="w-14 h-14 object-cover rounded flex-shrink-0">' if rel_img else ''}
+            <div>
+                <p class="text-white text-sm font-medium">{latest_release['name']}</p>
+                <p class="text-gray-400 text-xs">{rel_type} · {rel_date}</p>
+            </div>
+        </a>
+    </div>"""
+    else:
+        release_block = ''
+
+    # Upcoming shows block
+    if shows:
+        show_items = ''
+        for s in shows:
+            venue = s.get('venue', {})
+            city = venue.get('city', '')
+            country = venue.get('country', '')
+            venue_name = venue.get('name', '')
+            raw_date = s.get('datetime', '')[:10]
+            ticket_url = ''
+            for offer in s.get('offers', []):
+                if offer.get('type') == 'Tickets':
+                    ticket_url = offer.get('url', '')
+                    break
+            ticket_btn = (f'<a href="{ticket_url}" target="_blank" '
+                          f'class="text-xs bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-full whitespace-nowrap">🎟 Tickets</a>'
+                          ) if ticket_url else ''
+            show_items += f"""
+            <div class="flex items-center justify-between py-2 border-b border-white border-opacity-10 last:border-0">
+                <div>
+                    <p class="text-white text-sm font-medium">{venue_name}</p>
+                    <p class="text-gray-400 text-xs">{city}, {country} · {raw_date}</p>
+                </div>
+                {ticket_btn}
+            </div>"""
+        shows_block = f"""
+    <div class="glass rounded-lg p-4 mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-3">📅 Upcoming Shows</h2>
+        {show_items}
+    </div>"""
+    else:
+        shows_block = ''
+
+    return f"""
+<div class="max-w-md mx-auto">
+    <!-- Header -->
+    <div class="text-center mb-6">
+        <img src="{image}" class="w-28 h-28 rounded-full mx-auto mb-3 object-cover">
+        <h1 class="text-2xl font-bold text-white mb-1">{name}</h1>
+        <p class="text-gray-400 text-sm">{genres}</p>
+    </div>
+
+    <!-- Quick links -->
+    <div class="flex gap-2 mb-4">
+        <a href="{spotify_url}" target="_blank"
+           class="flex-1 glass rounded-lg p-3 text-center text-white text-sm hover:bg-white hover:bg-opacity-10 transition">
+            🎵 Spotify
+        </a>
+        {'<a href="' + yt_stats["channel_url"] + '" target="_blank" class="flex-1 glass rounded-lg p-3 text-center text-white text-sm hover:bg-white hover:bg-opacity-10 transition">📺 YouTube</a>' if yt_stats else ''}
+        <a href="{merch_url}" target="_blank"
+           class="flex-1 glass rounded-lg p-3 text-center text-white text-sm hover:bg-white hover:bg-opacity-10 transition">
+            🛍️ Merch
+        </a>
+    </div>
+
+    {bio_block}
+    {yt_block}
+    {release_block}
+    {shows_block}
+
+    <!-- Subscribe (collapsed) -->
+    <div class="text-center mt-2">
+        <button id="subscribeToggle" onclick="document.getElementById('subscribeBox').classList.toggle('hidden');this.classList.add('hidden');"
+                class="text-gray-500 text-sm hover:text-gray-300 transition">
+            📧 Subscribe for updates
+        </button>
+    </div>
+    <div id="subscribeBox" class="glass rounded-lg p-5 mt-3 hidden">
+        {subscribe_form_js}
+        <p class="text-gray-400 text-xs mt-3">Get notified when {name} releases new music or announces shows.</p>
+    </div>
+</div>"""
+
+
 @app.route('/api/spotlight-full/<artist_slug>')
 def spotlight_full(artist_slug):
     """Get full Spotlight HTML content for embedding in modal"""
     try:
-        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
-
-        search_results = spotify.search(q=artist_name, type='artist', limit=1)
-        if not search_results['artists']['items']:
+        artist_name = artist_slug.replace('_', ' ').replace(' and ', ' & ')
+        d = _get_spotlight_data(artist_name)
+        if not d:
             return jsonify({'error': 'Artist not found'}), 404
 
-        artist = search_results['artists']['items'][0]
-        yt_stats = get_youtube_stats(artist['name'])
-
-        image = artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'
-        genres = ', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'
-        spotify_url = artist['external_urls'].get('spotify', '#')
-        yt_link = (f'<a href="{yt_stats["channel_url"]}" target="_blank" '
-                   f'class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">'
-                   f'📺 YouTube Channel</a>') if yt_stats else ''
-
-        html = f"""
-        <div class="max-w-md mx-auto">
-            <div class="text-center mb-8">
-                <img src="{image}" class="w-32 h-32 rounded-full mx-auto mb-4">
-                <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
-                <p class="text-gray-400">{genres}</p>
-            </div>
-            <div class="space-y-3 mb-6">
-                <a href="{spotify_url}" target="_blank"
-                   class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
-                    🎵 Listen on Spotify
-                </a>
-                {yt_link}
-            </div>
-            <div class="text-center">
-                <button onclick="this.parentElement.nextElementSibling.classList.toggle('hidden');this.classList.add('hidden');"
-                        class="text-gray-500 text-sm hover:text-gray-300 transition">
-                    📧 Subscribe for updates
-                </button>
-            </div>
-            <div class="glass rounded-lg p-6 mt-3 hidden">
-                <form onsubmit="return spotlightSubscribe(event, '{artist['name']}')">
+        subscribe_form = f"""<form onsubmit="return spotlightSubscribe(event, '{d['artist']['name']}')">
                     <input type="email" placeholder="your@email.com"
                            class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3">
-                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
-                        Subscribe
-                    </button>
-                </form>
-                <p class="text-gray-400 text-xs mt-3">Get notified when {artist['name']} releases new music, videos, or announces shows.</p>
-            </div>
-        </div>
-        """
-        return html
+                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">Subscribe</button>
+                </form>"""
+
+        return _build_spotlight_body(d, subscribe_form)
     except Exception as e:
         print(f"Error in spotlight_full: {e}")
         return jsonify({'error': str(e)}), 500
@@ -890,28 +1039,26 @@ def spotlight_full(artist_slug):
 def public_spotlight(artist_slug):
     """Public Spotlight page for artist"""
     try:
-        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
-
-        search_results = spotify.search(q=artist_name, type='artist', limit=1)
-        if not search_results['artists']['items']:
+        artist_name = artist_slug.replace('_', ' ').replace(' and ', ' & ')
+        d = _get_spotlight_data(artist_name)
+        if not d:
             return jsonify({'error': 'Artist not found'}), 404
 
-        artist = search_results['artists']['items'][0]
-        yt_stats = get_youtube_stats(artist['name'])
+        name = d['artist']['name']
+        subscribe_form = f"""<form onsubmit="return subscribe()">
+                <input type="email" id="email" placeholder="your@email.com"
+                       class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3">
+                <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">Subscribe</button>
+            </form>"""
 
-        image = artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'
-        genres = ', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'
-        spotify_url = artist['external_urls'].get('spotify', '#')
-        yt_link = (f'<a href="{yt_stats["channel_url"]}" target="_blank" '
-                   f'class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">'
-                   f'📺 YouTube Channel</a>') if yt_stats else ''
+        body = _build_spotlight_body(d, subscribe_form)
 
         html = f"""<!DOCTYPE html>
 <html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{artist['name']} - Spotlight</title>
+    <title>{name} - Spotlight</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body {{ background: #0a0e27; color: #e0e6ed; }}
@@ -919,52 +1066,19 @@ def public_spotlight(artist_slug):
     </style>
 </head>
 <body class="p-4 md:p-8">
-    <div class="max-w-md mx-auto">
-        <div class="text-center mb-8">
-            <img src="{image}" class="w-32 h-32 rounded-full mx-auto mb-4">
-            <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
-            <p class="text-gray-400">{genres}</p>
-        </div>
-        <div class="space-y-3 mb-6">
-            <a href="{spotify_url}" target="_blank"
-               class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
-                🎵 Listen on Spotify
-            </a>
-            {yt_link}
-        </div>
-        <div class="text-center mb-2">
-            <button onclick="document.getElementById('subscribeBox').style.display='block';this.style.display='none';"
-                    class="text-gray-500 text-sm hover:text-gray-300 transition">
-                📧 Subscribe for updates
-            </button>
-        </div>
-        <div id="subscribeBox" class="glass rounded-lg p-6" style="display:none">
-            <form onsubmit="return subscribe()">
-                <input type="email" id="email" placeholder="your@email.com"
-                       class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3">
-                <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
-                    Subscribe
-                </button>
-            </form>
-        </div>
-    </div>
+    {body}
     <script>
         async function subscribe() {{
             const email = document.getElementById('email').value;
             try {{
-                const response = await fetch('/api/spotlight-subscribe', {{
+                const r = await fetch('/api/spotlight-subscribe', {{
                     method: 'POST',
                     headers: {{'Content-Type': 'application/json'}},
-                    body: JSON.stringify({{ artist_name: '{artist['name']}', email: email }})
+                    body: JSON.stringify({{ artist_name: '{name}', email: email }})
                 }});
-                const data = await response.json();
-                if (data.status === 'success') {{
-                    alert('✅ Subscribed!');
-                    document.getElementById('email').value = '';
-                }}
-            }} catch (e) {{
-                alert('Error subscribing');
-            }}
+                const data = await r.json();
+                if (data.status === 'success') {{ alert('✅ Subscribed!'); document.getElementById('email').value = ''; }}
+            }} catch (e) {{ alert('Error subscribing'); }}
             return false;
         }}
     </script>

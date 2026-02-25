@@ -156,9 +156,9 @@ EVOLUTION_DATA = {
     },
     
     # Catriel y Paco Amoroso - 3 eras
-    "catriel y paco amoroso": {
-        "artist_name": "Catriel y Paco Amoroso",
-        "spotify_id": "catriel_paco_amoroso",
+    "ca7riel & paco amoroso": {
+        "artist_name": "CA7RIEL & Paco Amoroso",
+        "spotify_id": "6I8TDGeUmmLom8auKPzMdX",
         "available": True,
         "eras": [
             {
