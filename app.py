@@ -855,18 +855,23 @@ def spotlight_full(artist_slug):
                 <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
                 <p class="text-gray-400">{genres}</p>
             </div>
-            <div class="space-y-3 mb-8">
+            <div class="space-y-3 mb-6">
                 <a href="{spotify_url}" target="_blank"
                    class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
                     🎵 Listen on Spotify
                 </a>
                 {yt_link}
             </div>
-            <div class="glass rounded-lg p-6">
-                <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
+            <div class="text-center">
+                <button onclick="this.parentElement.nextElementSibling.classList.toggle('hidden');this.classList.add('hidden');"
+                        class="text-gray-500 text-sm hover:text-gray-300 transition">
+                    📧 Subscribe for updates
+                </button>
+            </div>
+            <div class="glass rounded-lg p-6 mt-3 hidden">
                 <form onsubmit="return spotlightSubscribe(event, '{artist['name']}')">
                     <input type="email" placeholder="your@email.com"
-                           class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
+                           class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3">
                     <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
                         Subscribe
                     </button>
@@ -920,18 +925,23 @@ def public_spotlight(artist_slug):
             <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
             <p class="text-gray-400">{genres}</p>
         </div>
-        <div class="space-y-3 mb-8">
+        <div class="space-y-3 mb-6">
             <a href="{spotify_url}" target="_blank"
                class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
                 🎵 Listen on Spotify
             </a>
             {yt_link}
         </div>
-        <div class="glass rounded-lg p-6">
-            <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
+        <div class="text-center mb-2">
+            <button onclick="document.getElementById('subscribeBox').style.display='block';this.style.display='none';"
+                    class="text-gray-500 text-sm hover:text-gray-300 transition">
+                📧 Subscribe for updates
+            </button>
+        </div>
+        <div id="subscribeBox" class="glass rounded-lg p-6" style="display:none">
             <form onsubmit="return subscribe()">
                 <input type="email" id="email" placeholder="your@email.com"
-                       class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
+                       class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3">
                 <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
                     Subscribe
                 </button>
