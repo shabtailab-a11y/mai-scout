@@ -32,3 +32,4 @@ venv.bak/
 .idea/
 .vscode/
 *.log
+.cache
