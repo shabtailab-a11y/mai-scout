@@ -727,5 +727,243 @@ def get_geography():
         print(f"Geography API error: {e}")
         return jsonify({'error': str(e)}), 500
 
+@app.route('/api/evolution', methods=['POST'])
+def get_evolution():
+    """Get Evolution data for artist"""
+    data = request.get_json()
+    artist_name = data.get('artist_name', '').strip()
+
+    if not artist_name:
+        return jsonify({'error': 'Artist name required'}), 400
+
+    try:
+        from evolution_data import get_artist_evolution, list_available_artists
+
+        evolution = get_artist_evolution(artist_name)
+
+        if evolution and evolution.get('available'):
+            return jsonify({'status': 'available', 'data': evolution})
+        else:
+            return jsonify({
+                'status': 'coming_soon',
+                'available_artists': list_available_artists(),
+                'message': f'Evolution data coming soon for {artist_name}'
+            })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/evolution/email', methods=['POST'])
+def subscribe_evolution():
+    """Subscribe to Evolution feature notification"""
+    data = request.get_json()
+    email = data.get('email', '').strip()
+    role = data.get('role', '').strip()
+    artist = data.get('artist', '').strip()
+
+    if not email or not role:
+        return jsonify({'error': 'Email and role required'}), 400
+
+    try:
+        return jsonify({
+            'status': 'success',
+            'message': f"Thanks! We'll notify you when Evolution launches for {artist}",
+            'incentive': '2 months free when available'
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/unlock-feature', methods=['POST'])
+def unlock_feature():
+    """Subscribe to unlock feature (Instagram, TikTok Advanced, etc)"""
+    data = request.get_json()
+    email = data.get('email', '').strip()
+    role = data.get('role', '').strip()
+    feature = data.get('feature', '').strip()
+    artist = data.get('artist', '').strip()
+
+    if not email or not role or not feature:
+        return jsonify({'error': 'Email, role, and feature required'}), 400
+
+    try:
+        feature_names = {
+            'instagram': 'Instagram Stats',
+            'tiktok_advanced': 'TikTok Advanced Stats'
+        }
+        feature_name = feature_names.get(feature, feature)
+        return jsonify({
+            'status': 'success',
+            'message': f"Thanks! We'll notify you when {feature_name} launches for {artist}"
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+# ========== SPOTLIGHT ==========
+
+SPOTLIGHT_SUBSCRIBERS = {}
+
+@app.route('/api/spotlight-subscribe', methods=['POST'])
+def spotlight_subscribe():
+    """Subscribe to artist Spotlight updates"""
+    try:
+        data = request.get_json()
+        artist_name = data.get('artist_name', '').strip()
+        email = data.get('email', '').strip()
+
+        if not artist_name or not email:
+            return jsonify({'error': 'Artist name and email required'}), 400
+
+        if artist_name not in SPOTLIGHT_SUBSCRIBERS:
+            SPOTLIGHT_SUBSCRIBERS[artist_name] = []
+        if email not in SPOTLIGHT_SUBSCRIBERS[artist_name]:
+            SPOTLIGHT_SUBSCRIBERS[artist_name].append(email)
+
+        return jsonify({
+            'status': 'success',
+            'message': f"Thanks! You'll get updates about {artist_name}'s new music, videos, and shows."
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/spotlight-full/<artist_slug>')
+def spotlight_full(artist_slug):
+    """Get full Spotlight HTML content for embedding in modal"""
+    try:
+        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
+
+        search_results = spotify.search(q=artist_name, type='artist', limit=1)
+        if not search_results['artists']['items']:
+            return jsonify({'error': 'Artist not found'}), 404
+
+        artist = search_results['artists']['items'][0]
+        yt_stats = get_youtube_stats(artist['name'])
+
+        image = artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'
+        genres = ', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'
+        spotify_url = artist['external_urls'].get('spotify', '#')
+        yt_link = (f'<a href="{yt_stats["channel_url"]}" target="_blank" '
+                   f'class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">'
+                   f'📺 YouTube Channel</a>') if yt_stats else ''
+
+        html = f"""
+        <div class="max-w-md mx-auto">
+            <div class="text-center mb-8">
+                <img src="{image}" class="w-32 h-32 rounded-full mx-auto mb-4">
+                <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
+                <p class="text-gray-400">{genres}</p>
+            </div>
+            <div class="space-y-3 mb-8">
+                <a href="{spotify_url}" target="_blank"
+                   class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
+                    🎵 Listen on Spotify
+                </a>
+                {yt_link}
+            </div>
+            <div class="glass rounded-lg p-6">
+                <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
+                <form onsubmit="return spotlightSubscribe(event, '{artist['name']}')">
+                    <input type="email" placeholder="your@email.com"
+                           class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
+                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
+                        Subscribe
+                    </button>
+                </form>
+                <p class="text-gray-400 text-xs mt-3">Get notified when {artist['name']} releases new music, videos, or announces shows.</p>
+            </div>
+        </div>
+        """
+        return html
+    except Exception as e:
+        print(f"Error in spotlight_full: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/spotlight/<artist_slug>')
+def public_spotlight(artist_slug):
+    """Public Spotlight page for artist"""
+    try:
+        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
+
+        search_results = spotify.search(q=artist_name, type='artist', limit=1)
+        if not search_results['artists']['items']:
+            return jsonify({'error': 'Artist not found'}), 404
+
+        artist = search_results['artists']['items'][0]
+        yt_stats = get_youtube_stats(artist['name'])
+
+        image = artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'
+        genres = ', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'
+        spotify_url = artist['external_urls'].get('spotify', '#')
+        yt_link = (f'<a href="{yt_stats["channel_url"]}" target="_blank" '
+                   f'class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">'
+                   f'📺 YouTube Channel</a>') if yt_stats else ''
+
+        html = f"""<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{artist['name']} - Spotlight</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {{ background: #0a0e27; color: #e0e6ed; }}
+        .glass {{ background: rgba(255,255,255,0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }}
+    </style>
+</head>
+<body class="p-4 md:p-8">
+    <div class="max-w-md mx-auto">
+        <div class="text-center mb-8">
+            <img src="{image}" class="w-32 h-32 rounded-full mx-auto mb-4">
+            <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
+            <p class="text-gray-400">{genres}</p>
+        </div>
+        <div class="space-y-3 mb-8">
+            <a href="{spotify_url}" target="_blank"
+               class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
+                🎵 Listen on Spotify
+            </a>
+            {yt_link}
+        </div>
+        <div class="glass rounded-lg p-6">
+            <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
+            <form onsubmit="return subscribe()">
+                <input type="email" id="email" placeholder="your@email.com"
+                       class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
+                <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
+                    Subscribe
+                </button>
+            </form>
+        </div>
+    </div>
+    <script>
+        async function subscribe() {{
+            const email = document.getElementById('email').value;
+            try {{
+                const response = await fetch('/api/spotlight-subscribe', {{
+                    method: 'POST',
+                    headers: {{'Content-Type': 'application/json'}},
+                    body: JSON.stringify({{ artist_name: '{artist['name']}', email: email }})
+                }});
+                const data = await response.json();
+                if (data.status === 'success') {{
+                    alert('✅ Subscribed!');
+                    document.getElementById('email').value = '';
+                }}
+            }} catch (e) {{
+                alert('Error subscribing');
+            }}
+            return false;
+        }}
+    </script>
+</body>
+</html>"""
+        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

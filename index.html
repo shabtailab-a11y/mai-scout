@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MAI Scout - Music Analytics Intelligence</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * {
             margin: 0;
@@ -142,6 +143,20 @@
                 >
                     🚀 Analyze
                 </button>
+                <button
+                    onclick="openEvolution()"
+                    class="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-4 px-8 rounded-lg text-lg"
+                    title="View artist growth trajectory (Beta)"
+                >
+                    📈 Evolution
+                </button>
+                <button
+                    onclick="openSpotlight()"
+                    class="bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white font-bold py-4 px-8 rounded-lg text-lg"
+                    title="Link in bio for fans"
+                >
+                    ✨ Spotlight
+                </button>
             </div>
             
             <!-- Quick Demo Links -->
@@ -151,7 +166,8 @@
                     <button onclick="quickSearch('Bad Bunny')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Bad Bunny</button>
                     <button onclick="quickSearch('Taylor Swift')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Taylor Swift</button>
                     <button onclick="quickSearch('Peso Pluma')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Peso Pluma</button>
-                    <button onclick="quickSearch('The Weeknd')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">The Weeknd</button>
+                    <button onclick="quickSearch('Catriel y Paco Amoroso')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Catriel y Paco Amoroso</button>
+                    <button onclick="quickSearch('Feli Colina')" class="glass rounded-lg px-3 py-1 text-sm hover:bg-white hover:bg-opacity-10 transition">Feli Colina</button>
                 </div>
             </div>
         </div>
@@ -1171,6 +1187,355 @@
         attachAutocomplete('artistUrl',      () => scoutArtist());
         attachAutocomplete('compareArtist1', () => {});
         attachAutocomplete('compareArtist2', () => {});
+
+        // ========== EVOLUTION ==========
+        let evolutionCharts = {};
+
+        async function openEvolution() {
+            const artistName = document.getElementById('artistUrl').value.trim();
+            if (!artistName) { alert('Please enter an artist name first'); return; }
+
+            document.getElementById('evolutionModal').classList.remove('hidden');
+            document.getElementById('evolutionTitle').textContent = `📈 ${artistName} Evolution`;
+
+            try {
+                const response = await fetch('/api/evolution', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ artist_name: artistName })
+                });
+                const data = await response.json();
+                if (data.status === 'available') {
+                    showEvolutionContent(data.data);
+                } else {
+                    showComingSoon(artistName, data.available_artists);
+                }
+            } catch (error) {
+                console.error('Evolution error:', error);
+                showComingSoon(artistName, []);
+            }
+        }
+
+        function closeEvolution() {
+            document.getElementById('evolutionModal').classList.add('hidden');
+            Object.values(evolutionCharts).forEach(chart => chart.destroy());
+            evolutionCharts = {};
+        }
+
+        function showEvolutionContent(evolutionData) {
+            document.getElementById('evolutionContent').classList.remove('hidden');
+            document.getElementById('comingSoonContent').classList.add('hidden');
+
+            const eras = evolutionData.eras;
+            const labels = eras.map(e => `${e.year_start}`);
+            const audienceIndices = eras.map(e => e.audience_index);
+            const multipliers = eras.map(e => e.multiplier_vs_prev || 0);
+
+            const audienceCtx = document.getElementById('audienceChart').getContext('2d');
+            if (evolutionCharts.audience) evolutionCharts.audience.destroy();
+            evolutionCharts.audience = new Chart(audienceCtx, {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Estimated Audience Size',
+                        data: audienceIndices,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6,182,212,0.1)',
+                        tension: 0.4,
+                        fill: true,
+                        pointRadius: 6,
+                        pointBackgroundColor: '#06b6d4',
+                        pointBorderColor: '#ffffff',
+                        pointBorderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: '#e0e6ed' } },
+                        tooltip: { callbacks: { label: ctx => `~${ctx.parsed.y}K listeners` } }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#e0e6ed', callback: v => v + 'K' } },
+                        x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#e0e6ed' } }
+                    }
+                }
+            });
+
+            const multiplierCtx = document.getElementById('multiplierChart').getContext('2d');
+            if (evolutionCharts.multiplier) evolutionCharts.multiplier.destroy();
+            const barColors = ['rgba(34,197,94,0.7)','rgba(59,130,246,0.7)','rgba(139,92,246,0.7)','rgba(236,72,153,0.7)','rgba(249,115,22,0.7)','rgba(6,182,212,0.7)'];
+            evolutionCharts.multiplier = new Chart(multiplierCtx, {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [{ label: 'Growth Multiplier', data: multipliers, backgroundColor: barColors, borderColor: barColors.map(c => c.replace('0.7','1')), borderWidth: 2 }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { labels: { color: '#e0e6ed' } } },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#e0e6ed' } },
+                        x: { grid: { color: 'rgba(255,255,255,0.1)' }, ticks: { color: '#e0e6ed' } }
+                    }
+                }
+            });
+
+            document.getElementById('timelineContainer').innerHTML = eras.map(era => `
+                <div class="glass rounded-lg p-4 border-l-4 border-cyan-400">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="text-xl font-bold text-white">${escapeHtml(era.title)}</h4>
+                        <span class="text-sm bg-cyan-500 text-white px-2 py-1 rounded">${era.year_start}-${era.year_end}</span>
+                    </div>
+                    <p class="text-gray-300 mb-2">${escapeHtml(era.trigger)}</p>
+                    <div class="grid grid-cols-2 gap-4 text-sm">
+                        <div><span class="text-gray-400">Audience Index:</span><span class="text-cyan-400 font-bold"> ${era.audience_index}</span></div>
+                        <div><span class="text-gray-400">Growth:</span><span class="text-green-400 font-bold"> ${era.multiplier_vs_prev ? era.multiplier_vs_prev.toFixed(1) + 'x' : '—'}</span></div>
+                        <div><span class="text-gray-400">Venue:</span><span class="text-blue-400 font-bold"> ${escapeHtml(era.venue_level)}</span></div>
+                        <div><span class="text-gray-400">Example:</span><span class="text-purple-400 text-xs"> ${escapeHtml(era.example_venues[0])}</span></div>
+                    </div>
+                </div>
+            `).join('');
+
+            if (evolutionData.audience_insights && evolutionData.audience_insights.length > 0) {
+                document.getElementById('audienceInsightsList').innerHTML = evolutionData.audience_insights.map((insight, idx) => `
+                    <div class="pb-3 ${idx < evolutionData.audience_insights.length - 1 ? 'border-b border-cyan-400 border-opacity-20 mb-3' : ''}">
+                        <p class="text-sm leading-relaxed text-gray-100">${escapeHtml(insight)}</p>
+                    </div>
+                `).join('');
+                document.getElementById('audienceInsightsContainer').classList.remove('hidden');
+            } else {
+                document.getElementById('audienceInsightsContainer').classList.add('hidden');
+            }
+
+            document.getElementById('insightsList').innerHTML = evolutionData.insights.map(i => `
+                <li class="flex gap-2"><span>•</span><span>${escapeHtml(i)}</span></li>
+            `).join('');
+        }
+
+        function showComingSoon(artistName, availableArtists) {
+            document.getElementById('evolutionContent').classList.add('hidden');
+            document.getElementById('comingSoonContent').classList.remove('hidden');
+            document.getElementById('comingSoonArtist').textContent = artistName;
+        }
+
+        async function subscribeEvolution(event) {
+            event.preventDefault();
+            const email = document.getElementById('emailInput').value;
+            const role = document.getElementById('roleInput').value;
+            const artist = document.getElementById('comingSoonArtist').textContent;
+            try {
+                const response = await fetch('/api/evolution/email', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, role, artist })
+                });
+                const data = await response.json();
+                if (data.status === 'success') { alert('✅ ' + data.message); closeEvolution(); }
+                else { alert('❌ Error: ' + data.error); }
+            } catch (error) { alert('Error subscribing. Please try again.'); }
+        }
+
+        // ========== SPOTLIGHT ==========
+
+        async function openSpotlight() {
+            const artistNameEl = document.getElementById('artistName');
+            const artistName = artistNameEl ? artistNameEl.textContent.trim() : '';
+            if (!artistName) { alert('Please search for an artist first'); return; }
+
+            const slug = artistName.toLowerCase().replace(/\s+/g, '_').replace(/&/g, 'and');
+            document.getElementById('spotlightLink').value = `${window.location.origin}/spotlight/${slug}`;
+            document.getElementById('spotlightModal').classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/api/spotlight-full/${slug}`);
+                const html = await response.text();
+                const bodyContent = html
+                    .replace(/<!DOCTYPE[\s\S]*?>/i, '')
+                    .replace(/<html[\s\S]*?>/i, '')
+                    .replace(/<\/html>/i, '')
+                    .replace(/<head[\s\S]*?<\/head>/i, '')
+                    .replace(/<body[^>]*>/i, '')
+                    .replace(/<\/body>/i, '')
+                    .replace(/<script[\s\S]*?<\/script>/g, '');
+                document.getElementById('spotlightFullContent').innerHTML = bodyContent;
+            } catch (error) {
+                console.error('Error loading Spotlight:', error);
+                document.getElementById('spotlightFullContent').innerHTML = `
+                    <div class="text-center text-gray-400">
+                        <p>Copy the link below to share as your "link in bio".</p>
+                    </div>`;
+            }
+        }
+
+        function closeSpotlight() {
+            document.getElementById('spotlightModal').classList.add('hidden');
+        }
+
+        function copySpotlightLink() {
+            const link = document.getElementById('spotlightLink');
+            link.select();
+            navigator.clipboard.writeText(link.value).then(() => alert('✅ Link copied!')).catch(() => alert('Error copying'));
+        }
+
+        async function spotlightSubscribe(event, artistName) {
+            event.preventDefault();
+            const email = event.target.querySelector('input[type="email"]').value;
+            try {
+                const response = await fetch('/api/spotlight-subscribe', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ artist_name: artistName, email })
+                });
+                const data = await response.json();
+                if (data.status === 'success') { event.target.querySelector('input[type="email"]').value = ''; alert('✅ ' + data.message); }
+                else { alert('❌ Error: ' + (data.error || 'Unknown error')); }
+            } catch (error) { alert('Error subscribing'); }
+            return false;
+        }
+
+        // ========== UNLOCK MODAL ==========
+
+        function openEmailModal(featureType, artistName) {
+            const features = {
+                'instagram': { title: '📸 Unlock Instagram Stats', description: `Get real-time Instagram analytics for ${artistName}.` },
+                'tiktok_advanced': { title: '🎵 Unlock TikTok Advanced Stats', description: `Access deep TikTok analytics for ${artistName}.` }
+            };
+            const feature = features[featureType] || features['instagram'];
+            document.getElementById('unlockTitle').textContent = feature.title;
+            document.getElementById('unlockDescription').textContent = feature.description;
+            document.getElementById('unlockModal').dataset.featureType = featureType;
+            document.getElementById('unlockModal').dataset.artistName = artistName;
+            document.getElementById('unlockModal').classList.remove('hidden');
+        }
+
+        function closeUnlockModal() {
+            document.getElementById('unlockModal').classList.add('hidden');
+        }
+
+        async function subscribeFeature(event) {
+            event.preventDefault();
+            const email = document.getElementById('unlockEmailInput').value;
+            const role = document.getElementById('unlockRoleInput').value;
+            const featureType = document.getElementById('unlockModal').dataset.featureType;
+            const artistName = document.getElementById('unlockModal').dataset.artistName;
+            try {
+                const response = await fetch('/api/unlock-feature', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ email, role, feature: featureType, artist: artistName })
+                });
+                const data = await response.json();
+                if (data.status === 'success') {
+                    alert('✅ ' + data.message);
+                    document.getElementById('unlockEmailInput').value = '';
+                    document.getElementById('unlockRoleInput').value = '';
+                    closeUnlockModal();
+                } else { alert('❌ Error: ' + data.error); }
+            } catch (error) { alert('Error subscribing. Please try again.'); }
+        }
     </script>
+
+    <!-- Evolution Modal -->
+    <div id="evolutionModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="glass-dark rounded-2xl p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="evolutionTitle" class="text-3xl font-bold text-white">📈 Artist Evolution</h2>
+                <button onclick="closeEvolution()" class="text-gray-400 hover:text-white text-2xl">✕</button>
+            </div>
+            <div id="evolutionContent" class="hidden">
+                <div class="mb-6 flex gap-2 items-center">
+                    <span class="bg-cyan-500 text-white px-3 py-1 rounded-full text-sm font-semibold">DEMO / MODELED</span>
+                    <p class="text-gray-400">Historical audience growth analysis</p>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-4">📊 Audience Growth Index</h3>
+                        <canvas id="audienceChart"></canvas>
+                        <p class="text-xs text-gray-400 mt-2 text-center">💡 <strong>Scale:</strong> 1 Index = ~1,000 estimated listeners</p>
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-white mb-4">🚀 Growth Multipliers</h3>
+                        <canvas id="multiplierChart"></canvas>
+                    </div>
+                </div>
+                <div id="audienceInsightsContainer" class="hidden mb-8 bg-gradient-to-r from-blue-900 to-cyan-900 rounded-lg p-6 border border-cyan-400 border-opacity-30">
+                    <div class="flex items-center gap-2 mb-6">
+                        <h3 class="text-lg font-bold text-cyan-300">🎯 Key Audience Insights</h3>
+                        <span class="text-xs bg-cyan-900 bg-opacity-50 text-cyan-200 px-2 py-1 rounded">Modeled</span>
+                    </div>
+                    <div id="audienceInsightsList" class="space-y-0 text-gray-100"></div>
+                </div>
+                <div class="mb-8">
+                    <h3 class="text-xl font-bold text-white mb-4">⏱️ Eras & Milestones</h3>
+                    <div id="timelineContainer" class="space-y-4"></div>
+                </div>
+                <div class="bg-white bg-opacity-10 rounded-lg p-4">
+                    <h3 class="text-xl font-bold text-white mb-3">💡 Key Insights</h3>
+                    <ul id="insightsList" class="space-y-2 text-gray-300"></ul>
+                </div>
+            </div>
+            <div id="comingSoonContent" class="hidden">
+                <div class="text-center py-8">
+                    <p class="text-2xl mb-6 text-gray-300">Evolution data coming soon for <span id="comingSoonArtist" class="font-bold text-cyan-400"></span></p>
+                    <form onsubmit="subscribeEvolution(event)" class="max-w-md mx-auto">
+                        <input type="email" id="emailInput" placeholder="your@email.com" class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-4" required />
+                        <select id="roleInput" class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white border border-white border-opacity-20 mb-6" required>
+                            <option value="">Select your role...</option>
+                            <option value="artist">Artist</option>
+                            <option value="manager">Manager</option>
+                            <option value="booker">Booker</option>
+                            <option value="other">Other</option>
+                        </select>
+                        <div class="mb-4 text-green-400 text-sm">✅ Get 2 months free when Evolution launches</div>
+                        <button type="submit" class="w-full bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold py-3 px-6 rounded-lg">Notify Me</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Spotlight Modal -->
+    <div id="spotlightModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="glass-dark rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="sticky top-0 bg-black bg-opacity-80 p-4 flex justify-between items-center border-b border-white border-opacity-10 z-10">
+                <h2 class="text-2xl font-bold text-white">✨ Spotlight</h2>
+                <button onclick="closeSpotlight()" class="text-gray-400 hover:text-white text-2xl">✕</button>
+            </div>
+            <div id="spotlightFullContent" class="p-8">
+                <div class="text-center text-gray-400"><p>Loading Spotlight...</p></div>
+            </div>
+            <div class="sticky bottom-0 bg-black bg-opacity-90 p-6 border-t border-white border-opacity-10">
+                <p class="text-white font-bold mb-4">📱 Share this link as your "link in bio":</p>
+                <div class="flex gap-3">
+                    <input type="text" id="spotlightLink" readonly class="flex-1 p-3 rounded-lg bg-white bg-opacity-10 text-cyan-400 font-mono text-sm">
+                    <button onclick="copySpotlightLink()" class="bg-orange-600 hover:bg-orange-700 text-white px-4 py-3 rounded-lg font-bold whitespace-nowrap">📋 Copy Link</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unlock Modal -->
+    <div id="unlockModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="glass-dark rounded-2xl p-8 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h2 id="unlockTitle" class="text-2xl font-bold text-white">🔓 Unlock Feature</h2>
+                <button onclick="closeUnlockModal()" class="text-gray-400 hover:text-white text-2xl">✕</button>
+            </div>
+            <p id="unlockDescription" class="text-gray-300 mb-4"></p>
+            <p class="text-sm text-gray-400 mb-4">Leave your email and we'll notify you when this feature is live:</p>
+            <form onsubmit="subscribeFeature(event)">
+                <input type="email" id="unlockEmailInput" placeholder="your@email.com" class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
+                <select id="unlockRoleInput" class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white border border-white border-opacity-20 mb-4" required>
+                    <option value="">Select your role...</option>
+                    <option value="artist">Artist</option>
+                    <option value="manager">Manager</option>
+                    <option value="booker">Booker</option>
+                    <option value="other">Other</option>
+                </select>
+                <button type="submit" class="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold py-3 rounded-lg">Notify Me</button>
+            </form>
+        </div>
+    </div>
 </body>
 </html>
