@@ -843,18 +843,23 @@ def _get_spotlight_data(artist_name):
     albums = spotify.artist_albums(artist['id'], album_type='album,single', limit=1)
     latest_release = albums['items'][0] if albums['items'] else None
 
-    # Upcoming shows — Bandsintown (free, no auth)
-    shows = []
-    try:
-        bt = requests.get(
-            f"https://rest.bandsintown.com/artists/{requests.utils.quote(artist['name'])}/events",
-            params={'app_id': 'mai-scout', 'date': 'upcoming'},
-            timeout=5
-        )
-        if bt.ok and isinstance(bt.json(), list):
-            shows = bt.json()[:4]
-    except Exception:
-        pass
+    # Upcoming shows — hard-coded data first, fallback to Bandsintown
+    from shows_data import get_shows as _get_shows
+    hc = _get_shows(artist['name'])
+    if hc is not None:
+        shows = hc['upcoming_shows']
+    else:
+        shows = []
+        try:
+            bt = requests.get(
+                f"https://rest.bandsintown.com/artists/{requests.utils.quote(artist['name'])}/events",
+                params={'app_id': 'mai-scout', 'date': 'upcoming'},
+                timeout=5
+            )
+            if bt.ok and isinstance(bt.json(), list):
+                shows = bt.json()[:4]
+        except Exception:
+            pass
 
     # Smart bio — Last.fm first, then generated
     bio = ''
@@ -868,8 +873,16 @@ def _get_spotlight_data(artist_name):
         bio = (f"{artist['name']} is a {genres_str} artist with "
                f"{followers:,} followers on Spotify.")
 
-    # Merch — link to official merch search
-    merch_url = f"https://www.google.com/search?q={requests.utils.quote(artist['name'])}+merch+official"
+    # Merch — hard-coded official store first, fallback to search
+    from shows_data import get_shows as _get_shows_merch
+    hc_merch = _get_shows_merch(artist['name'])
+    if hc_merch and hc_merch.get('merch_url'):
+        merch_url = hc_merch['merch_url']
+    else:
+        merch_url = f"https://www.google.com/search?q={requests.utils.quote(artist['name'])}+merch+official"
+
+    # Flag: artist is in our hard-coded list but has no dates yet
+    shows_tba = (hc is not None and len(shows) == 0)
 
     return {
         'artist': artist,
@@ -877,6 +890,7 @@ def _get_spotlight_data(artist_name):
         'last_video': last_video,
         'latest_release': latest_release,
         'shows': shows,
+        'shows_tba': shows_tba,
         'bio': bio,
         'merch_url': merch_url,
     }
@@ -888,6 +902,7 @@ def _build_spotlight_body(d, subscribe_form_js):
     last_video = d['last_video']
     latest_release = d['latest_release']
     shows = d['shows']
+    shows_tba = d.get('shows_tba', False)
     bio = d['bio']
     merch_url = d['merch_url']
     yt_stats = d['yt_stats']
@@ -941,19 +956,32 @@ def _build_spotlight_body(d, subscribe_form_js):
         release_block = ''
 
     # Upcoming shows block
-    if shows:
+    if shows_tba and not shows:
+        shows_block = """
+    <div class="glass rounded-lg p-4 mb-4">
+        <h2 class="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-2">📅 Upcoming Shows</h2>
+        <p class="text-gray-400 text-sm">No confirmed dates yet — follow the artist for announcements.</p>
+    </div>"""
+    elif shows:
         show_items = ''
         for s in shows:
-            venue = s.get('venue', {})
-            city = venue.get('city', '')
-            country = venue.get('country', '')
-            venue_name = venue.get('name', '')
-            raw_date = s.get('datetime', '')[:10]
-            ticket_url = ''
-            for offer in s.get('offers', []):
-                if offer.get('type') == 'Tickets':
-                    ticket_url = offer.get('url', '')
-                    break
+            # Support both hard-coded flat format and Bandsintown nested format
+            venue_raw = s.get('venue', '')
+            if isinstance(venue_raw, dict):
+                venue_name = venue_raw.get('name', '')
+                city = venue_raw.get('city', '')
+                country = venue_raw.get('country', '')
+            else:
+                venue_name = venue_raw
+                city = s.get('city', '')
+                country = s.get('country', '')
+            raw_date = s.get('date') or s.get('datetime', '')[:10]
+            ticket_url = s.get('ticket_url', '')
+            if not ticket_url:
+                for offer in s.get('offers', []):
+                    if offer.get('type') == 'Tickets':
+                        ticket_url = offer.get('url', '')
+                        break
             ticket_btn = (f'<a href="{ticket_url}" target="_blank" '
                           f'class="text-xs bg-orange-600 hover:bg-orange-700 text-white px-3 py-1 rounded-full whitespace-nowrap">🎟 Tickets</a>'
                           ) if ticket_url else ''
