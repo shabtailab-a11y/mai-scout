@@ -1,24 +1,41 @@
+import os
+from dotenv import load_dotenv
+
+load_dotenv()  # load .env before any os.getenv() call
+
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 import re
 import requests
+from html import unescape
 import spotipy
 from spotipy.oauth2 import SpotifyClientCredentials
 from googleapiclient.discovery import build
+from flask_caching import Cache
 
 app = Flask(__name__, static_folder='.')
 CORS(app)
+cache = Cache(app, config={'CACHE_TYPE': 'SimpleCache', 'CACHE_DEFAULT_TIMEOUT': 300})
 
-import os
+# Validate required environment variables at startup
+_missing = [k for k in ('SPOTIPY_CLIENT_ID', 'SPOTIPY_CLIENT_SECRET', 'YOUTUBE_API_KEY')
+            if not os.getenv(k)]
+if _missing:
+    raise SystemExit(
+        f"\n[MAI] Missing required environment variables: {', '.join(_missing)}\n"
+        f"Copy .env.example to .env and fill in your API keys.\n"
+    )
 
-# Credenciales (from environment variables)
-SPOTIPY_CLIENT_ID = os.getenv('SPOTIPY_CLIENT_ID', 'e490c3b2db6744ce884b9d27f426d4f7')
-SPOTIPY_CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET', '6cd469cf554842b29f009a9555894ace')
-YOUTUBE_API_KEY = os.getenv('YOUTUBE_API_KEY', 'AIzaSyCu5JG9wt4roONhqLbO9ca6m4wv6-JT3WA')
-LASTFM_API_KEY = os.getenv('LASTFM_API_KEY', '8aa9d7b90c4f1c1e0c5c3b5c1c5c3b5c')
+SPOTIPY_CLIENT_ID     = os.getenv('SPOTIPY_CLIENT_ID')
+SPOTIPY_CLIENT_SECRET = os.getenv('SPOTIPY_CLIENT_SECRET')
+YOUTUBE_API_KEY       = os.getenv('YOUTUBE_API_KEY')
+LASTFM_API_KEY        = os.getenv('LASTFM_API_KEY')
+RAPIDAPI_KEY          = os.getenv('RAPIDAPI_KEY')
 
-# RapidAPI TikTok (from environment variable)
-RAPIDAPI_KEY = os.getenv('RAPIDAPI_KEY', None)
+if not LASTFM_API_KEY:
+    print("INFO: LASTFM_API_KEY not set — Last.fm section will be hidden.")
+if not RAPIDAPI_KEY:
+    print("INFO: RAPIDAPI_KEY not set — TikTok integration will run in demo mode.")
 
 # Inicializar cliente de Spotify
 auth_manager = SpotifyClientCredentials(
@@ -44,6 +61,7 @@ def extract_artist_id(url):
     
     return None
 
+@cache.memoize(timeout=21600)  # 6 hours
 def get_youtube_stats(artist_name):
     """Obtiene estadísticas de YouTube del artista"""
     try:
@@ -159,6 +177,7 @@ def get_youtube_stats(artist_name):
         print(f"Error fetching YouTube data: {e}")
         return None
 
+@cache.memoize(timeout=43200)  # 12 hours
 def get_geo_data_from_spotify_genres_improved(artist_name):
     """Obtiene datos geográficos usando análisis de géneros + mejora heurística"""
     try:
@@ -223,6 +242,75 @@ def get_geo_data_from_spotify_genres_improved(artist_name):
         print(f"Error in improved geo analysis: {e}")
         return None
 
+@cache.memoize(timeout=7200)  # 2 hours
+def get_lastfm_data(artist_name):
+    """Fetches listeners, play count, bio, tags and top tracks from Last.fm"""
+    if not LASTFM_API_KEY:
+        return None
+    try:
+        # Artist info: listeners, playcount, bio, tags
+        info = requests.get('https://ws.audioscrobbler.com/2.0/', params={
+            'method': 'artist.getinfo',
+            'artist': artist_name,
+            'api_key': LASTFM_API_KEY,
+            'format': 'json',
+            'autocorrect': 1
+        }, timeout=10).json()
+
+        if 'error' in info:
+            print(f"Last.fm error: {info.get('message')}")
+            return None
+
+        artist = info.get('artist', {})
+        stats  = artist.get('stats', {})
+
+        # Top tracks with play counts
+        tracks_json = requests.get('https://ws.audioscrobbler.com/2.0/', params={
+            'method': 'artist.gettoptracks',
+            'artist': artist_name,
+            'api_key': LASTFM_API_KEY,
+            'format': 'json',
+            'limit': 5,
+            'autocorrect': 1
+        }, timeout=10).json()
+
+        top_tracks = [
+            {
+                'name':      t.get('name', ''),
+                'playcount': int(t.get('playcount', 0)),
+                'listeners': int(t.get('listeners', 0)),
+                'url':       t.get('url', '')
+            }
+            for t in tracks_json.get('toptracks', {}).get('track', [])[:5]
+        ]
+
+        # Strip HTML tags and decode entities from bio summary
+        bio = artist.get('bio', {}).get('summary', '')
+        if bio:
+            bio = re.sub(r'<a[^>]*>.*?</a>', '', bio, flags=re.IGNORECASE | re.DOTALL)
+            bio = re.sub(r'<[^>]+>', '', bio)
+            bio = unescape(bio).strip()
+
+        tags = [
+            {'name': t.get('name', ''), 'url': t.get('url', '')}
+            for t in artist.get('tags', {}).get('tag', [])[:5]
+        ]
+
+        return {
+            'listeners':  int(stats.get('listeners', 0)),
+            'playcount':  int(stats.get('playcount', 0)),
+            'bio':        bio,
+            'tags':       tags,
+            'top_tracks': top_tracks,
+            'url':        artist.get('url', '')
+        }
+
+    except Exception as e:
+        print(f"Error fetching Last.fm data: {e}")
+        return None
+
+
+@cache.memoize(timeout=7200)  # 2 hours
 def get_artist_data(artist_id):
     """Obtiene datos completos del artista desde la API de Spotify"""
     try:
@@ -325,7 +413,10 @@ def get_artist_data(artist_id):
         
         # Obtener estadísticas de YouTube
         youtube_stats = get_youtube_stats(artist['name'])
-        
+
+        # Get Last.fm data
+        lastfm_data = get_lastfm_data(artist['name'])
+
         # Extraer datos relevantes
         result = {
             'name': artist['name'],
@@ -336,7 +427,8 @@ def get_artist_data(artist_id):
             'top_tracks': top_tracks,
             'similar_artists': similar_artists,
             'recent_releases': recent_releases,
-            'youtube': youtube_stats
+            'youtube': youtube_stats,
+            'lastfm': lastfm_data
         }
         
         return result
@@ -382,15 +474,18 @@ def scout_artist():
         return jsonify({'error': 'Nombre del artista requerido'}), 400
     
     try:
-        # Buscar artista por nombre (tomar el primer resultado)
-        search_results = spotify.search(q=artist_name, type='artist', limit=1)
-        
-        if not search_results['artists']['items']:
-            return jsonify({'error': f'No se encontró el artista "{artist_name}"'}), 404
-        
-        # Tomar el mejor match (primer resultado)
-        artist_id = search_results['artists']['items'][0]['id']
-        
+        # If input is a Spotify URL or URI, extract the ID directly
+        artist_id = extract_artist_id(artist_name)
+
+        if not artist_id:
+            # Fall back to name search
+            search_results = spotify.search(q=artist_name, type='artist', limit=1)
+
+            if not search_results['artists']['items']:
+                return jsonify({'error': f'No se encontró el artista "{artist_name}"'}), 404
+
+            artist_id = search_results['artists']['items'][0]['id']
+
         # Obtener datos completos del artista
         artist_data = get_artist_data(artist_id)
         
@@ -412,92 +507,78 @@ def scout_artist():
     except Exception as e:
         return jsonify({'error': f'Error al buscar artista: {str(e)}'}), 500
 
+@cache.memoize(timeout=300)  # 5 minutes — autocomplete fires on every keystroke
+def _search_spotify_artists(query):
+    results = spotify.search(q=query, type='artist', limit=5)
+    return [
+        {
+            'id':    a['id'],
+            'name':  a['name'],
+            'image': a['images'][0]['url'] if a['images'] else None,
+            'url':   a['external_urls']['spotify']
+        }
+        for a in results['artists']['items']
+    ]
+
 @app.route('/api/search', methods=['POST'])
 def search_artist():
     """Buscar artistas por nombre"""
     data = request.get_json()
     query = data.get('query', '')
-    
+
     if not query:
         return jsonify({'error': 'Query requerida'}), 400
-    
+
     try:
-        results = spotify.search(q=query, type='artist', limit=5)
-        artists = []
-        
-        for artist in results['artists']['items']:
-            artists.append({
-                'id': artist['id'],
-                'name': artist['name'],
-                'image': artist['images'][0]['url'] if artist['images'] else None,
-                'url': artist['external_urls']['spotify']
-            })
-        
-        return jsonify({'artists': artists})
-        
+        return jsonify({'artists': _search_spotify_artists(query)})
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
-def search_tiktok_user(artist_name):
-    """Busca automáticamente el usuario de TikTok basado en el nombre del artista"""
-    
-    # Si no hay API key, retornar None
-    if not RAPIDAPI_KEY:
-        return None
-    
-    try:
-        # Variaciones del nombre a probar
-        search_variations = [
-            artist_name,
-            artist_name.replace(' ', ''),
-            artist_name.lower().replace(' ', ''),
-            artist_name.split()[0] if ' ' in artist_name else None,  # Primer nombre
-        ]
-        
-        search_variations = [v for v in search_variations if v]  # Eliminar None
-        
-        url = "https://tiktok-scraper7.p.rapidapi.com/user/info"
-        
-        headers = {
-            "X-RapidAPI-Key": RAPIDAPI_KEY,
-            "X-RapidAPI-Host": "tiktok-scraper7.p.rapidapi.com"
-        }
-        
-        # Intentar cada variación
-        for variation in search_variations:
-            try:
-                querystring = {"unique_id": variation}
-                response = requests.get(url, headers=headers, params=querystring, timeout=5)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if data.get('data', {}).get('user'):
-                        return variation
-            except:
-                continue
-        
-        return None
-        
-    except Exception as e:
-        print(f"Error searching TikTok user: {e}")
-        return None
+@app.route('/api/compare', methods=['POST'])
+def compare_artists():
+    """Compare two artists side by side"""
+    data = request.get_json()
+    artist1_name = data.get('artist1', '').strip()
+    artist2_name = data.get('artist2', '').strip()
+
+    if not artist1_name or not artist2_name:
+        return jsonify({'error': 'Two artist names required'}), 400
+
+    results = {}
+    for key, name in [('artist1', artist1_name), ('artist2', artist2_name)]:
+        try:
+            search = spotify.search(q=name, type='artist', limit=1)
+            if not search['artists']['items']:
+                return jsonify({'error': f'Artist not found: "{name}"'}), 404
+            artist_id = search['artists']['items'][0]['id']
+            artist_data = get_artist_data(artist_id)
+            if not artist_data:
+                return jsonify({'error': f'Could not fetch data for: "{name}"'}), 500
+            results[key] = {
+                'artist': artist_data,
+                'mai_pulse': calculate_mai_pulse(artist_data['popularity'], artist_data['followers'])
+            }
+        except Exception as e:
+            return jsonify({'error': f'Error fetching "{name}": {str(e)}'}), 500
+
+    return jsonify(results)
+
 
 def get_tiktok_stats(username):
     """Obtiene estadísticas de TikTok usando RapidAPI"""
     
     # Si no hay API key configurada, retornar datos demo
-    if not RAPIDAPI_KEY:
+    if not RAPIDAPI_KEY or RAPIDAPI_KEY == 'TU_RAPIDAPI_KEY_AQUI':
         return {
             'username': username,
             'followers': 0,
             'following': 0,
             'likes': 0,
             'videos': 0,
-            'bio': 'Configure RAPIDAPI_KEY to see real TikTok data',
+            'bio': 'Configura tu RapidAPI key para ver datos reales',
             'avatar': 'https://via.placeholder.com/150/667eea/ffffff?text=TT',
             'verified': False,
-            'demo_mode': True,
-            'tiktok_url': f'https://www.tiktok.com/@{username}'
+            'demo_mode': True
         }
     
     try:
@@ -527,10 +608,9 @@ def get_tiktok_stats(username):
                 'likes': stats.get('heartCount', 0),
                 'videos': stats.get('videoCount', 0),
                 'bio': user_data.get('signature', ''),
-                'avatar': user_data.get('avatarLarger', '') or 'https://via.placeholder.com/150/667eea/ffffff?text=TT',
+                'avatar': user_data.get('avatarLarger', ''),
                 'verified': user_data.get('verified', False),
-                'demo_mode': False,
-                'tiktok_url': f'https://www.tiktok.com/@{user_data.get("uniqueId", username)}'
+                'demo_mode': False
             }
         else:
             print(f"TikTok API error: {response.status_code}")
@@ -542,7 +622,7 @@ def get_tiktok_stats(username):
 
 @app.route('/api/tiktok', methods=['POST'])
 def scout_tiktok():
-    """Obtener estadísticas de TikTok por username manual"""
+    """Obtener estadísticas de TikTok"""
     data = request.get_json()
     username = data.get('username', '').strip().replace('@', '')
     
@@ -555,41 +635,6 @@ def scout_tiktok():
         return jsonify({'error': 'No se pudo obtener información de TikTok'}), 404
     
     return jsonify(tiktok_data)
-
-@app.route('/api/artist-tiktok', methods=['POST'])
-def get_artist_tiktok():
-    """Buscar TikTok automáticamente por nombre del artista"""
-    data = request.get_json()
-    artist_name = data.get('artist_name', '').strip()
-    
-    if not artist_name:
-        return jsonify({'error': 'Artist name required'}), 400
-    
-    # Buscar automáticamente el usuario de TikTok
-    tiktok_username = search_tiktok_user(artist_name)
-    
-    if not tiktok_username:
-        return jsonify({
-            'status': 'not_found',
-            'artist_name': artist_name,
-            'message': 'TikTok account not found for this artist'
-        })
-    
-    # Obtener estadísticas
-    tiktok_data = get_tiktok_stats(tiktok_username)
-    
-    if not tiktok_data:
-        return jsonify({
-            'status': 'not_found',
-            'artist_name': artist_name,
-            'message': 'Could not fetch TikTok data'
-        })
-    
-    return jsonify({
-        'status': 'found',
-        'artist_name': artist_name,
-        'tiktok': tiktok_data
-    })
 
 @app.route('/api/geography', methods=['POST'])
 def get_geography():
@@ -680,268 +725,6 @@ def get_geography():
         
     except Exception as e:
         print(f"Geography API error: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/evolution', methods=['POST'])
-def get_evolution():
-    """Get Evolution data for artist"""
-    data = request.get_json()
-    artist_name = data.get('artist_name', '').strip()
-    
-    if not artist_name:
-        return jsonify({'error': 'Artist name required'}), 400
-    
-    try:
-        from evolution_data import get_artist_evolution, list_available_artists
-        
-        # Try to find evolution data
-        evolution = get_artist_evolution(artist_name)
-        
-        if evolution and evolution.get('available'):
-            return jsonify({
-                'status': 'available',
-                'data': evolution
-            })
-        else:
-            # Return coming soon with available artists
-            return jsonify({
-                'status': 'coming_soon',
-                'available_artists': list_available_artists(),
-                'message': f'Evolution data coming soon for {artist_name}'
-            })
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/evolution/email', methods=['POST'])
-def subscribe_evolution():
-    """Subscribe to Evolution feature notification"""
-    data = request.get_json()
-    email = data.get('email', '').strip()
-    role = data.get('role', '').strip()
-    artist = data.get('artist', '').strip()
-    
-    if not email or not role:
-        return jsonify({'error': 'Email and role required'}), 400
-    
-    try:
-        # TODO: Save to database or email service
-        # For now, just acknowledge
-        return jsonify({
-            'status': 'success',
-            'message': f'Thanks! We\'ll notify you when Evolution launches for {artist}',
-            'incentive': '2 months free when available'
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/unlock-feature', methods=['POST'])
-def unlock_feature():
-    """Subscribe to unlock feature (Instagram, TikTok Advanced, etc)"""
-    data = request.get_json()
-    email = data.get('email', '').strip()
-    role = data.get('role', '').strip()
-    feature = data.get('feature', '').strip()
-    artist = data.get('artist', '').strip()
-    
-    if not email or not role or not feature:
-        return jsonify({'error': 'Email, role, and feature required'}), 400
-    
-    try:
-        # TODO: Save to database or email service
-        # For now, just acknowledge
-        feature_names = {
-            'instagram': 'Instagram Stats',
-            'tiktok_advanced': 'TikTok Advanced Stats'
-        }
-        
-        feature_name = feature_names.get(feature, feature)
-        
-        return jsonify({
-            'status': 'success',
-            'message': f'Thanks! We\'ll notify you when {feature_name} launches for {artist}'
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# ========== SPOTLIGHT (SIMPLE) ==========
-
-# In-memory spotlight subscribers
-SPOTLIGHT_SUBSCRIBERS = {}
-
-@app.route('/api/spotlight-subscribe', methods=['POST'])
-def spotlight_subscribe():
-    """Subscribe to artist Spotlight updates"""
-    try:
-        data = request.get_json()
-        artist_name = data.get('artist_name', '').strip()
-        email = data.get('email', '').strip()
-        
-        if not artist_name or not email:
-            return jsonify({'error': 'Artist name and email required'}), 400
-        
-        # Add to subscribers
-        if artist_name not in SPOTLIGHT_SUBSCRIBERS:
-            SPOTLIGHT_SUBSCRIBERS[artist_name] = []
-        
-        if email not in SPOTLIGHT_SUBSCRIBERS[artist_name]:
-            SPOTLIGHT_SUBSCRIBERS[artist_name].append(email)
-        
-        return jsonify({
-            'status': 'success',
-            'message': f'Thanks! You\'ll get updates about {artist_name}\'s new music, videos, and shows.'
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/spotlight-full/<artist_slug>')
-def spotlight_full(artist_slug):
-    """Get full Spotlight HTML content for embedding in modal"""
-    try:
-        # Convert slug to artist name
-        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
-        
-        # Get artist data from Spotify
-        search_results = spotify.search(q=artist_name, type='artist', limit=1)
-        if not search_results['artists']['items']:
-            return jsonify({'error': 'Artist not found'}), 404
-        
-        artist = search_results['artists']['items'][0]
-        
-        # Get YouTube channel
-        yt_stats = get_youtube_stats(artist['name'])
-        
-        # Build full Spotlight HTML (complete content with form)
-        html = f"""
-        <div class="max-w-md mx-auto">
-            <!-- Header -->
-            <div class="text-center mb-8">
-                <img src="{artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'}" 
-                     class="w-32 h-32 rounded-full mx-auto mb-4">
-                <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
-                <p class="text-gray-400">{', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'}</p>
-            </div>
-            
-            <!-- Links -->
-            <div class="space-y-3 mb-8">
-                <a href="{artist['external_urls'].get('spotify', '#')}" target="_blank" 
-                   class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
-                    🎵 Listen on Spotify
-                </a>
-                {f'<a href="{yt_stats["channel_url"]}" target="_blank" class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">📺 YouTube Channel</a>' if yt_stats else ''}
-            </div>
-            
-            <!-- Subscribe -->
-            <div class="glass rounded-lg p-6">
-                <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
-                <form onsubmit="return spotlightSubscribe(event, '{artist['name']}')">
-                    <input type="email" placeholder="your@email.com" 
-                           class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
-                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
-                        Subscribe
-                    </button>
-                </form>
-                <p class="text-gray-400 text-xs mt-3">Get notified when {artist['name']} releases new music, videos, or announces shows.</p>
-            </div>
-        </div>
-        """
-        
-        return html
-        
-    except Exception as e:
-        print(f"Error in spotlight_full: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/spotlight/<artist_slug>')
-def public_spotlight(artist_slug):
-    """Public Spotlight page for artist"""
-    try:
-        # Convert slug to artist name
-        artist_name = artist_slug.replace('_', ' ').title().replace('And', '&')
-        
-        # Get artist data from Spotify
-        search_results = spotify.search(q=artist_name, type='artist', limit=1)
-        if not search_results['artists']['items']:
-            return jsonify({'error': 'Artist not found'}), 404
-        
-        artist = search_results['artists']['items'][0]
-        
-        # Get YouTube channel
-        yt_stats = get_youtube_stats(artist['name'])
-        
-        # Render full HTML page
-        html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>{artist['name']} - Spotlight</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-                body {{ background: #0a0e27; color: #e0e6ed; }}
-                .glass {{ background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.1); }}
-            </style>
-        </head>
-        <body class="p-4 md:p-8">
-            <div class="max-w-md mx-auto">
-                <!-- Header -->
-                <div class="text-center mb-8">
-                    <img src="{artist['images'][0]['url'] if artist['images'] else 'https://via.placeholder.com/200'}" 
-                         class="w-32 h-32 rounded-full mx-auto mb-4">
-                    <h1 class="text-3xl font-bold text-white mb-2">{artist['name']}</h1>
-                    <p class="text-gray-400">{', '.join(artist['genres'][:3]) if artist['genres'] else 'Artist'}</p>
-                </div>
-                
-                <!-- Links -->
-                <div class="space-y-3 mb-8">
-                    <a href="{artist['external_urls'].get('spotify', '#')}" target="_blank" 
-                       class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">
-                        🎵 Listen on Spotify
-                    </a>
-                    {f'<a href="{yt_stats["channel_url"]}" target="_blank" class="block glass rounded-lg p-4 text-center text-white hover:bg-white hover:bg-opacity-10 transition">📺 YouTube Channel</a>' if yt_stats else ''}
-                </div>
-                
-                <!-- Subscribe -->
-                <div class="glass rounded-lg p-6">
-                    <h2 class="text-xl font-bold text-white mb-4">📧 Get Updates</h2>
-                    <form onsubmit="return subscribe()">
-                        <input type="email" id="email" placeholder="your@email.com" 
-                               class="w-full p-3 rounded-lg bg-white bg-opacity-10 text-white placeholder-gray-500 border border-white border-opacity-20 mb-3" required>
-                        <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 rounded-lg">
-                            Subscribe
-                        </button>
-                    </form>
-                </div>
-            </div>
-            
-            <script>
-                async function subscribe() {{
-                    const email = document.getElementById('email').value;
-                    try {{
-                        const response = await fetch('/api/spotlight-subscribe', {{
-                            method: 'POST',
-                            headers: {{'Content-Type': 'application/json'}},
-                            body: JSON.stringify({{ artist_name: '{artist['name']}', email: email }})
-                        }});
-                        const data = await response.json();
-                        if (data.status === 'success') {{
-                            alert('✅ Subscribed!');
-                            document.getElementById('email').value = '';
-                        }}
-                    }} catch (e) {{
-                        alert('Error subscribing');
-                    }}
-                    return false;
-                }}
-            </script>
-        </body>
-        </html>
-        """
-        
-        return html, 200, {'Content-Type': 'text/html; charset=utf-8'}
-        
-    except Exception as e:
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
